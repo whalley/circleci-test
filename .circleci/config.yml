@@ -7,7 +7,7 @@ jobs:
       - run:
           command: |
             cd $HOME;
-            git clone --recurse https://github.com/wxWidgets/wxWidgets.git
+            git clone --recurse http://github.com/wxWidgets/wxWidgets.git
             cd wxWidgets-3.2.0;
             git checkout tags/v3.2.0
             mkdir build-linux;
