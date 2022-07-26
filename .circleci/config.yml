@@ -4,8 +4,10 @@ jobs:
     docker:
       image: moneymanagerex/mmex_build_env:ubuntu.bionic
       steps: 
-        run: cd src/db
-        run: python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg
-        run: python ../../util/sqliteupgrade2cpp.py ../../database
-        run: cd ../.. && mkdir build && cd build
+        - run:
+            command: |
+              cd src/db
+              python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg
+              python ../../util/sqliteupgrade2cpp.py ../../database
+              cd ../.. && mkdir build && cd build
    
