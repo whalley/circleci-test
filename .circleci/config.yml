@@ -6,8 +6,12 @@ jobs:
     steps: 
       - run:
           command: |
-            cd src/db
-            python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg
-            python ../../util/sqliteupgrade2cpp.py ../../database
-            cd ../.. && mkdir build && cd build
+            cd $HOME
+            curl -fsSL -O https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2
+            tar xzf wxWidgets-*.tar.bz2
+            cd wxWidgets-3.2.0
+            mkdir build-linux
+            cd build-linux
+            ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl
+            make
    
