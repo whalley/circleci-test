@@ -8,9 +8,8 @@ jobs:
           command: |
             cd $HOME;
             git config --global http.sslVerify false
-            git clone --recurse https://github.com/wxWidgets/wxWidgets.git
-            cd wxWidgets-3.2.0;
-            git checkout tags/v3.2.0
+            git clone --recurse https://github.com/wxWidgets/wxWidgets.git --branch v3.2.0 --single-branch
+            cd wxWidgets;
             mkdir build-linux;
             cd build-linux;
             ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl;
