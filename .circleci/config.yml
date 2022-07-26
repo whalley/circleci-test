@@ -7,7 +7,7 @@ jobs:
       - run:
           command: |
             cd $HOME;
-            lsb_release;
+            lsb_release - a;
             wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2;
             tar xzf wxWidgets-*.tar.bz2;
             cd wxWidgets-3.2.0;
