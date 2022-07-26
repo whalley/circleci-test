@@ -7,6 +7,7 @@ jobs:
       - run:
           command: |
             cd $HOME;
+            apt-get update;
             apt-get install curl;
             curl -fsSL -O https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2;
             tar xzf wxWidgets-*.tar.bz2;
