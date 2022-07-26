@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: moneymanagerex/mmex_build_env:ubuntu.bionic
+      - image: ubuntu:18.04
     steps: 
       - run:
           command: |
@@ -15,4 +15,4 @@ jobs:
             mkdir build-linux;
             cd build-linux;
             ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl;
-            make;1G
+            make;
