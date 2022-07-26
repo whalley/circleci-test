@@ -2,11 +2,12 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: ubuntu:18.04
+      - image: moneymanagerex/mmex_build_env:ubuntu.bionic
     steps: 
       - run:
           command: |
             cd $HOME;
+            apt-get install -y --no-install-recommends curl;
             curl -fsSL -O https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2;
             tar xzf wxWidgets-*.tar.bz2;
             cd wxWidgets-3.2.0;
