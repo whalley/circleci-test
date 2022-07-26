@@ -7,11 +7,10 @@ jobs:
       - run:
           command: |
             cd $HOME;
-            lsb_release -a;
-            wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2;
-            tar xzf wxWidgets-*.tar.bz2;
+            git clone --recurse https://github.com/wxWidgets/wxWidgets.git
             cd wxWidgets-3.2.0;
-            mkdir build-linux;ß
+            git checkout tags/v3.2.0
+            mkdir build-linux;
             cd build-linux;
             ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl;
             make;
