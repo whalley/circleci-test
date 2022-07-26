@@ -3,11 +3,11 @@ jobs:
   build:
     docker:
       image: moneymanagerex/mmex_build_env:ubuntu.bionic
-      steps: 
-        - run:
-            command: |
-              cd src/db
-              python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg
-              python ../../util/sqliteupgrade2cpp.py ../../database
-              cd ../.. && mkdir build && cd build
+    steps: 
+      - run:
+          command: |
+            cd src/db
+            python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg
+            python ../../util/sqliteupgrade2cpp.py ../../database
+            cd ../.. && mkdir build && cd build
    
