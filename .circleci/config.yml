@@ -2,13 +2,15 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: moneymanagerex/mmex_build_env:ubuntu.bionic
+      - image: ubuntu:18.04
     steps: 
       - run:
           command: |
             cd $HOME;
-            git config --global http.sslVerify false
-            git clone --recurse https://github.com/wxWidgets/wxWidgets.git --branch v3.2.0 --single-branch
+            apt-get update && apt-get install -y --no-install-recommends \
+              curl cmake build-essential gettext git pkg-config lsb-release file ccache \
+              libwxgtk-webview3.0-gtk3-dev liblua5.3-dev libcurl4-openssl-dev && \
+              apt-get clean;
             cd wxWidgets;
             mkdir build-linux;
             cd build-linux;
