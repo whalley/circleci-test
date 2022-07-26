@@ -11,7 +11,9 @@ jobs:
               curl cmake build-essential gettext git pkg-config lsb-release file ccache \
               libwxgtk-webview3.0-gtk3-dev liblua5.3-dev libcurl4-openssl-dev && \
               apt-get clean;
-            cd wxWidgets;
+            curl -fsSL -O https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.1.5.tar.bz2;
+            tar xzf wxWidgets-*.tar.bz2;
+            cd wxWidgets-*;
             mkdir build-linux;
             cd build-linux;
             ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl;
