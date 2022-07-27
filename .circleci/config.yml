@@ -4,7 +4,7 @@ jobs:
     machine: true
     steps: 
       - checkout
-      - run: docker run -it --rm -w /moneymanagerex/build -e -j4 \
+      - run: docker run -it --rm -w /moneymanagerex/build \
                     -v $HOME/.ccache:/root/.ccache \
-                    -v $TRAVIS_BUILD_DIR:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic \
+                    -v $HOME:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic \
                     bash -c "cmake && cmake --build . --target package && eval \$MMEX_INST_CMD"
