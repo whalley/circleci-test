@@ -7,5 +7,5 @@ jobs:
       - run: docker run --rm  \
                     -v $HOME/.ccache:/root/.ccache \
                     -v $HOME:/moneymanagerex 
-                    moneymanagerex/mmex_build_env:ubuntu.bionic \
+                    "moneymanagerex/mmex_build_env:ubuntu.bionic" \
                     bash -c "cmake && cmake --build . --target package && eval \$MMEX_INST_CMD"
