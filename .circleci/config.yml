@@ -4,4 +4,4 @@ jobs:
     machine: true
     steps: 
       - checkout
-      - run: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY/src/build:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "pwd && ls -l && ls -l / && cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
+      - run: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "pwd && ls -l && ls -l /moneymanagerex && ls -l / && cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
