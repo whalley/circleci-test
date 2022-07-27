@@ -4,9 +4,9 @@ jobs:
     machine: true
     steps: 
       - checkout
-      - run: 
-          name: Build wxWidgets
-          command: wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.7/wxWidgets-3.1.7.zip && unzip -d wxWidgets wxWidgets-3.1.7.zip && cd wxWidgets && mkdir build-linux && cd build-linux && ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl && make
 #      - run: 
-#        - name: Build MoneyManagerEx
-#ß        -command: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "ls -l && ls -l moneymanagerex && && exit &&cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
+#          name: Build wxWidgets
+#          command: wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.7/wxWidgets-3.1.7.zip && unzip -d wxWidgets wxWidgets-3.1.7.zip && cd wxWidgets && mkdir build-linux && cd build-linux && ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl && make
+      - run: 
+        - name: Build MoneyManagerEx
+        -command: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.7/wxWidgets-3.1.7.zip && unzip -d wxWidgets wxWidgets-3.1.7.zip && cd wxWidgets && mkdir build-linux && cd build-linux && ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl && make && exit cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
