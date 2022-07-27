@@ -4,4 +4,4 @@ jobs:
     machine: true
     steps: 
       - checkout
-      - run: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
+      - run: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "curl -fsSL -O https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.6/wxWidgets-3.1.5.tar.bz2 && tar xzf wxWidgets-*.tar.bz2 && cd wxWidgets-3.1.5 && mkdir build-linux && cd build-linux && ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl && make && cd ../.. && cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
