@@ -4,4 +4,4 @@ jobs:
     machine: true
     steps: 
       - checkout
-      - run: docker run -it --rm  -v $HOME/.ccache:/root/.ccache -v $HOME:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
+      - run: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $HOME:/moneymanagerex moneymanagerex/mmex_build_env:ubuntu.bionic bash -c "cmake .. && cmake --build . --target package && eval \$MMEX_INST_CMD"
