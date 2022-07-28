@@ -1,0 +1,30 @@
+{
+    "theme": {
+        "name": "Dark Mode",
+        "author": "MMEX Team",
+        "description": "Dark Mode Theme. Please restart MMEX when switching the OS light/dark mode setting.<br><br><b>NOTE: On Windows OS all window components cannot be switched to use dark colors and may remain gray</b>",
+        "url": "https://github.com/moneymanagerex/themes/blob/master/system-themes/dark-mode/README.md"
+    },
+    "colors": {
+        "navigationPanelFont": "#FFFFFF",
+        "navigationPanel": "#1D1D1D",
+        "list": "#1D1D1D",
+        "listPanel": "#1D1D1D",
+        "listAlternative1": "#343434",
+        "listAlternative2": "#343434",
+        "listTotal": "#2D2D2D",
+        "listBorder": "#000000",
+        "listFutureDate": "#AAAAAA",
+        "htmlPanel": {
+            "background": "#1D1D1D",
+            "foreColor": "#FFFFFF"
+        },
+        "reports": {
+            "altRow": "#343434",
+            "credit": "#50B381",
+            "debit": "#F75E51",
+            "delta": "#008FFB",
+            "foreColor": "#FFFFFF"           
+        }
+    }
+}
