@@ -3,10 +3,9 @@ jobs:
   build:
     machine: true
     steps: 
-      - checkout
- #     - run: 
- #         name: Build wxWidgets
- #         command: wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.7/wxWidgets-3.1.7.zip && unzip -d wxWidgets wxWidgets-3.1.7.zip && cd wxWidgets && mkdir build-linux && cd build-linux && ../configure --disable-shared --enable-cxx11 --with-cxx=11 --enable-webview --with-gtk=3 --enable-unicode --enable-intl && make
+      - run:
+          name: Checkout code
+          command: git clone --recurse --no-checkout "$CIRCLE_REPOSITORY_URL" .
       - run:
           name: Build DB headers
           command: ls -l $CIRCLE_WORKING_DIRECTORY && ls -l $CIRCLE_WORKING_DIRECTORY/src/db && cd $CIRCLE_WORKING_DIRECTORY/src/db && python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg && python ../../util/sqliteupgrade2cpp.py ../../database && cd ../.. && mkdir build && cd build
