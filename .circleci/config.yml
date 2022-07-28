@@ -5,7 +5,7 @@ jobs:
     steps: 
       - run:
           name: Checkout code
-          command: cd $CIRCLE_WORKING_DIRECTORY && git clone --recurse --no-checkout "$CIRCLE_REPOSITORY_URL" && ls -l $CIRCLE_WORKING_DIRECTORY
+          command: cd $CIRCLE_WORKING_DIRECTORY && git clone --recurse --no-checkout "$CIRCLE_REPOSITORY_URL" . && ls -l $CIRCLE_WORKING_DIRECTORY
       - run:
           name: Build DB headers
           command: ls -l $CIRCLE_WORKING_DIRECTORY && ls -l $CIRCLE_WORKING_DIRECTORY/src/db && cd $CIRCLE_WORKING_DIRECTORY/src/db && python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg && python ../../util/sqliteupgrade2cpp.py ../../database && cd ../.. && mkdir build && cd build
