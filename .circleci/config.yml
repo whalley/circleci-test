@@ -5,17 +5,27 @@ jobs:
     steps: 
       - run:
           name: Checkout code
-          command: cd $CIRCLE_WORKING_DIRECTORY && git clone --recurse "$CIRCLE_REPOSITORY_URL" .
+          command: |
+            cd $CIRCLE_WORKING_DIRECTORY && \
+            git clone --recurse "$CIRCLE_REPOSITORY_URL" .
       - run:
           name: Build DB headers
-          command: cd $CIRCLE_WORKING_DIRECTORY/src/db && python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg && python ../../util/sqliteupgrade2cpp.py ../../database && cd ../.. && mkdir build && cd build
+          command: |
+            cd $CIRCLE_WORKING_DIRECTORY/src/db && \
+            python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && \
+            rm -f sql*.sql *.mmdbg && \
+            python ../../util/sqliteupgrade2cpp.py ../../database && \
+            cd ../.. && \
+            mkdir build && \
+            cd build
       - run: 
           name: Build MoneyManagerEx
-          command: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-bionic bash -c "cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package"
+          command: |
+            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-bionic bash -c "cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package"
       - run:
           name: Collate artifacts
           command: |
-            mkdir -p /tmp/artifacts
-            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_1.5.17-1~bionic_amd64.deb /tmp/artifacts
+            mkdir -p /tmp/artifacts && \
+            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /tmp/artifacts
       - store_artifacts:
           path: /tmp/artifacts
