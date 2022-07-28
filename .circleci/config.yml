@@ -10,7 +10,10 @@ jobs:
       - run: 
           name: Build MoneyManagerEx
           command: docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-bionic bash -c "cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package"
+      - run:
+          name: Collate artifacts
+          command: |
+            mkdir -p /tmp/artifacts
+            cp /moneymanagerex/build/mmex_1.5.17-1~bionic_amd64.deb /tmp/artifacts
       - store_artifacts:
-          path: moneymanagerex/build/mmex_1.5.17-1~bionic_amd64.deb
-
-
+          path: /tmp/artifacts
