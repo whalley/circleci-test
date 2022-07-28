@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build:
+  build-macos:
     macos:
       xcode: 12.5.1
     steps:
@@ -10,7 +10,7 @@ jobs:
       - run:
           name: Build DB headers
           command: cd $CIRCLE_WORKING_DIRECTORY/src/db && python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && rm -f sql*.sql *.mmdbg && python ../../util/sqliteupgrade2cpp.py ../../database && cd ../.. && mkdir build && cd build
-  build:
+  build-linux:
     machine: true
     steps: 
       - run:
