@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  macBuild:
+  build:
     macos:
       xcode: 12.5.1
     steps: 
