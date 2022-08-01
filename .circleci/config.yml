@@ -25,7 +25,7 @@ jobs:
           name: Build MoneyManagerEx (MacOS)
           command: |
             pwd && \
-            brew install ccache gettext cmake curl pkg-config && \
+            brew install ccache gettext cmake curl pkg-config brew install wxwidgets@3.2 && \
             mkdir build-cocoa && \
             cd build-cocoa && \
             cmake -DCMAKE_CXX_FLAGS="-w" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10  .. && \
