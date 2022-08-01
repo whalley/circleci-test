@@ -7,7 +7,7 @@ jobs:
       - run:
           name: Checkout code
           command: |
-            mkdir project && \
+            mkdir $CIRCLE_WORKING_DIRECTORY && \
             cd $CIRCLE_WORKING_DIRECTORY && \
             git clone --recurse "$CIRCLE_REPOSITORY_URL" .
       - run:
