@@ -56,3 +56,9 @@ jobs:
             cp *.dmg /tmp/artifacts
       - store_artifacts:
           path: /tmp/artifacts
+          workflows:
+workflows:
+  my-workflow:
+    jobs:
+      - build-linux
+      - build-macos
