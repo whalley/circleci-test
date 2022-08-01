@@ -3,27 +3,30 @@ jobs:
   build:
     macos:
       xcode: 13.4.1
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps: 
-      - run:
-          name: Checkout code
-          command: |
-            mkdir $CIRCLE_WORKING_DIRECTORY/project && \
-            cd $CIRCLE_WORKING_DIRECTORY/project && \
-            git clone --recurse "$CIRCLE_REPOSITORY_URL" .
-      - run:
-          name: Build DB headers and prepare to build
-          command: |
-            cd $CIRCLE_WORKING_DIRECTORY/src/db && \
-            python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && \
-            rm -f sql*.sql *.mmdbg && \
-            python ../../util/sqliteupgrade2cpp.py ../../database && \
-            cd ../.. && \
-            mkdir build && \
-            mkdir -p /tmp/artifacts
+#      - run:
+#          name: Checkout code
+#          command: |
+#            mkdir $CIRCLE_WORKING_DIRECTORY/project && \
+#            cd $CIRCLE_WORKING_DIRECTORY/project && \
+#            git clone --recurse "$CIRCLE_REPOSITORY_URL" .
+#      - run:
+#          name: Build DB headers and prepare to build
+#          command: |
+#            cd $CIRCLE_WORKING_DIRECTORY/src/db && \
+#            python ../../util/sqlite2cpp.py ../../database/tables_v1.sql && \
+#            rm -f sql*.sql *.mmdbg && \
+#            python ../../util/sqliteupgrade2cpp.py ../../database && \
+#            cd ../.. && \
+#            mkdir build && \
+#            mkdir -p /tmp/artifacts
       - run:
           name: Build MoneyManagerEx (MacOS)
           command: |
-            brew update && brew upgrade && brew install ccache gettext cmake curl pkg-config && \
+            pwd && \
+            brew install ccache gettext cmake curl pkg-config && \
             mkdir build-cocoa && \
             cd build-cocoa && \
             cmake -DCMAKE_CXX_FLAGS="-w" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10  .. && \
