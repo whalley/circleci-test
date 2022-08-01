@@ -3,8 +3,6 @@ jobs:
   build:
     macos:
       xcode: 13.4.1
-    environment:
-      HOMEBREW_NO_AUTO_UPDATE: 1
     steps: 
       - run:
           name: Checkout code
