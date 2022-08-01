@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     macos:
-      xcode: 12.5.1
+      xcode: 13.4.1
     steps: 
       - run:
           name: Checkout code
