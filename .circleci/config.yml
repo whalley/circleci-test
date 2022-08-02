@@ -6,6 +6,7 @@ jobs:
       - run:
           name: Checkout code
           command: |
+            echo $XDG_SESSION_TYPE && \
             cd $CIRCLE_WORKING_DIRECTORY && \
             git clone --recurse "$CIRCLE_REPOSITORY_URL" .
       - run:
