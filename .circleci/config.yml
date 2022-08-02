@@ -17,22 +17,22 @@ jobs:
             python ../../util/sqliteupgrade2cpp.py ../../database && \
             cd ../.. && \
             mkdir build && \
-            mkdir -p /tmp/artifacts
+            mkdir -p /artifacts
       - run: 
           name: Build MoneyManagerEx (Ubuntu Jammy Jellyfish)
           command: |
             docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-jammy bash -c "rm -rf * && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
-            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /tmp/artifacts
-#      - run: 
-#          name: Build MoneyManagerEx (Ubuntu Focal Fossa)
-#          command: |
-#            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-focal bash -c "rm -rf * && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
-#            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /tmp/artifacts
-#      - run: 
-#          name: Build MoneyManagerEx (Ubuntu Bionic)
-#          command: |
-#            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-bionic bash -c "rm -rf * && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
-#            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /tmp/artifacts
+            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /artifacts
+      - run: 
+          name: Build MoneyManagerEx (Ubuntu Focal Fossa)
+          command: |
+            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-focal bash -c "rm -rf * && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
+            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /artifacts
+      - run: 
+          name: Build MoneyManagerEx (Ubuntu Bionic)
+          command: |
+            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:ubuntu-bionic bash -c "rm -rf * && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
+            cp $CIRCLE_WORKING_DIRECTORY/build/mmex_*.deb /artifacts
       - store_artifacts:
           path: /tmp/artifacts
   build-macos:
@@ -44,6 +44,7 @@ jobs:
           command: |
             pwd && \
             git clone --recurse "$CIRCLE_REPOSITORY_URL" .
+            mkdir -p /artifacts
       - run:
           name: Build MoneyManagerEx (MacOS) - Just build x86_64 architecture as part of CI
           command: |
@@ -53,9 +54,9 @@ jobs:
             cd build-cocoa && \
             cmake -DCMAKE_CXX_FLAGS="-w" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.10  .. && \
             cmake --build . --target package && \
-            cp *.dmg /tmp/artifacts
+            cp *.dmg /artifacts
       - store_artifacts:
-          path: /tmp/artifacts
+          path: /artifacts
 workflows:
   my-workflow:
     jobs:
