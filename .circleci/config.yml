@@ -8,7 +8,8 @@ jobs:
           command: |
             echo $XDG_SESSION_TYPE && \
             cd $CIRCLE_WORKING_DIRECTORY && \
-            git clone --branch ${CIRCLE_BRANCH} --recurse "$CIRCLE_REPOSITORY_URL" .
+            echo "Branch: " $CIRCLE_BRANCH \ 
+            git clone --branch $CIRCLE_BRANCH --recurse "$CIRCLE_REPOSITORY_URL" .
       - run:
           name: Build DB headers and prepare to build
           command: |
