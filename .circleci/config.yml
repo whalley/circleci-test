@@ -10,7 +10,12 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-      - run: docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
+      - run: 
+        name: Build docker images
+        command: |
+          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.jammy && \
+          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.focal && \
+          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
   build-linux:
     machine: true
     resource_class: large
@@ -32,11 +37,6 @@ jobs:
             cd ../.. && \
             mkdir build && \
             mkdir -p /tmp/artifacts
-      - run: 
-          name: Build MoneyManagerEx (SUSE Tumbleweed)
-          command: |
-            docker run -it --rm -w /moneymanagerex/build -v $HOME/.ccache:/root/.ccache -v $CIRCLE_WORKING_DIRECTORY:/moneymanagerex whall3y/mmex:suse-tumbleweed bash -c "rm -rf * && export MAKEFLAGS=-j4 && cmake -DwxWidgets_CONFIG_EXECUTABLE=/wxWidgets/build-linux/wx-config -DCMAKE_BUILD_TYPE=Release .. && cmake --build . --target package" && \
-            cp $CIRCLE_WORKING_DIRECTORY/build/mmex*.rpm /tmp/artifacts
       - run: 
           name: Build MoneyManagerEx (Ubuntu Jammy Jellyfish)
           command: |
