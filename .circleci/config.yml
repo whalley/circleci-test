@@ -15,7 +15,8 @@ jobs:
           command: |
             docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.jammy && \
             docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.focal && \
-            docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
+            docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic && \
+            docker build -t whall3y/mmex:opensuse-tumbleweed dockers/opensuse.tumbleweed
   build-linux:
     machine: true
     resource_class: large
