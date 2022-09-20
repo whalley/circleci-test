@@ -10,7 +10,7 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-      - run: docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic/Dockerfile
+      - run: docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
   build-linux:
     machine: true
     resource_class: large
