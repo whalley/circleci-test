@@ -11,11 +11,11 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run: 
-        name: Build docker images
-        command: |
-          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.jammy && \
-          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.focal && \
-          docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
+          name: Build docker images
+          command: |
+            docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.jammy && \
+            docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.focal && \
+            docker build -t whall3y/mmex:ubuntu-bionic dockers/ubuntu.bionic
   build-linux:
     machine: true
     resource_class: large
