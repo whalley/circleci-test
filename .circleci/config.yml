@@ -1,7 +1,7 @@
 version: 2.1
 jobs:
   build-dockers:
-    machine:
+    docker:
       - image: whalley/mmex@ubuntu-bionic
         auth: 
           username: whall3y
