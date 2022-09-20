@@ -79,5 +79,6 @@ jobs:
 workflows:
   my-workflow:
     jobs:
+      - build-dockers
       - build-linux
 #      - build-macos
