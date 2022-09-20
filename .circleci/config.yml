@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build-dockers:
     docker:
-      - image: whall3y/mmex@ubuntu-bionic
+      - image: whall3y/mmex:ubuntu-bionic
         auth: 
           username: whall3y
           password: $DOCKERHUB_PASSWORD
