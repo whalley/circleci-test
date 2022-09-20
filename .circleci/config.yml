@@ -1,5 +1,16 @@
 version: 2.1
 jobs:
+  build-dockers:
+    machine:
+      - image: whalley/mmex@ubuntu-bionic
+        auth: 
+          username: whall3y
+          password: $DOCKERHUB_PASSWORD
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_cahcing: true
+      - run: docker build dockers/ubuntu.bionic/Dockerfile
   build-linux:
     machine: true
     resource_class: large
