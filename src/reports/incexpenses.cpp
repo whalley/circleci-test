@@ -50,8 +50,8 @@ wxString mmReportIncomeExpenses::getHTMLText()
         , Model_Checking::TRANSDATE(m_date_range->end_date(), LESS_OR_EQUAL)
         , Model_Checking::STATUS(Model_Checking::VOID_, NOT_EQUAL)))
     {
-        // Do not include asset or stock transfers in income expense calculations.
-        if (Model_Checking::foreignTransactionAsTransfer(transaction))
+        // Do not include asset or stock transfers or deleted transactions in income expense calculations.
+        if (Model_Checking::foreignTransactionAsTransfer(transaction) || !transaction.DELETEDTIME.IsEmpty())
             continue;
 
         Model_Account::Data *account = Model_Account::instance().get(transaction.ACCOUNTID);
@@ -149,8 +149,8 @@ wxString mmReportIncomeExpensesMonthly::getHTMLText()
         , Model_Checking::TRANSDATE(m_date_range->end_date(), LESS_OR_EQUAL)
         , Model_Checking::STATUS(Model_Checking::VOID_, NOT_EQUAL)))
     {
-        // Do not include asset or stock transfers in income expense calculations.
-        if (Model_Checking::foreignTransactionAsTransfer(transaction))
+        // Do not include asset or stock transfers or deleted transactions in income expense calculations.
+        if (Model_Checking::foreignTransactionAsTransfer(transaction) || !transaction.DELETEDTIME.IsEmpty())
             continue;
 
         Model_Account::Data *account = Model_Account::instance().get(transaction.ACCOUNTID);
@@ -164,7 +164,7 @@ wxString mmReportIncomeExpensesMonthly::getHTMLText()
         if (account) convRate = Model_CurrencyHistory::getDayRate(Model_Account::currency(account)->CURRENCYID, transaction.TRANSDATE);
         int year = Model_Checking::TRANSDATE(transaction).GetYear();
 
-        int idx = (year * 100 + Model_Checking::TRANSDATE(transaction).GetMonth());
+        int idx = year * 100 + Model_Checking::TRANSDATE(transaction).GetMonth();
 
         if (Model_Checking::type(transaction) == Model_Checking::DEPOSIT) {
             incomeExpensesStats[idx].first += transaction.TRANSAMOUNT * convRate;

@@ -1,6 +1,7 @@
 /*******************************************************
 Copyright (C) 2014 Nikolay Akimov
 Copyright (C) 2015 Stefano Giorgio
+Copyright (C) 2022  Mark Whalley (mark@ipx.co.uk)
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -33,11 +34,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 /*******************************************************/
 wxBEGIN_EVENT_TABLE(UserTransactionPanel, wxPanel)
-    EVT_BUTTON(ID_TRANS_ACCOUNT_BUTTON, UserTransactionPanel::OnTransAccountButton)
-    EVT_BUTTON(ID_TRANS_PAYEE_BUTTON, UserTransactionPanel::OnTransPayeeButton)
-    EVT_BUTTON(ID_TRANS_CATEGORY_BUTTON, UserTransactionPanel::OnTransCategoryButton)
-    EVT_MENU(wxID_ANY, UserTransactionPanel::onSelectedNote)
-    EVT_BUTTON(wxID_FILE, UserTransactionPanel::OnAttachments)
+EVT_BUTTON(ID_TRANS_ACCOUNT_BUTTON, UserTransactionPanel::OnTransAccountButton)
+EVT_BUTTON(ID_TRANS_PAYEE_BUTTON, UserTransactionPanel::OnTransPayeeButton)
+EVT_BUTTON(ID_TRANS_CATEGORY_BUTTON, UserTransactionPanel::OnTransCategoryButton)
+EVT_MENU(wxID_ANY, UserTransactionPanel::onSelectedNote)
+EVT_BUTTON(wxID_FILE, UserTransactionPanel::OnAttachments)
 wxEND_EVENT_TABLE()
 /*******************************************************/
 
@@ -70,15 +71,6 @@ UserTransactionPanel::~UserTransactionPanel()
 
 void UserTransactionPanel::Create()
 {
-    // Control properties according to system
-    int interval = 0;
-#ifdef __WXMSW__
-    wxSize spinCtrlSize = wxSize(18, 22);
-    interval = 4;
-#else
-    wxSize spinCtrlSize = wxSize(16, -1);
-#endif
-
     const wxSize std_size(230, -1);
     const wxSize std_half_size(110, -1);
 
@@ -134,8 +126,6 @@ void UserTransactionPanel::Create()
         , wxDefaultPosition, std_half_size, wxALIGN_RIGHT | wxTE_PROCESS_ENTER
         , mmCalcValidator());
     mmToolTip(m_entered_amount, _("Specify the amount for this transaction"));
-    m_entered_amount->Connect(ID_TRANS_ENTERED_AMOUNT
-        , wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(UserTransactionPanel::OnEnteredText), nullptr, this);
 
     Model_Currency::Data* currency = Model_Currency::GetBaseCurrency();
     if (m_account_id > 0)
@@ -196,13 +186,13 @@ void UserTransactionPanel::Create()
     transPanelSizer->Add(new wxStaticText(this, wxID_STATIC, _("Notes")), g_flagsH);
 
     // Attachment ---------------------------------------------
-    m_attachment = new wxBitmapButton(this, wxID_FILE, mmBitmap(png::CLIP, mmBitmapButtonSize));
+    m_attachment = new wxBitmapButton(this, wxID_FILE, mmBitmapBundle(png::CLIP, mmBitmapButtonSize));
     mmToolTip(m_attachment, _("Organize attachments of this transaction"));
     //TODO: m_attachment Enable/disable
     //m_attachment->Enable(false);
 
     // Frequent Notes ---------------------------------------------
-    wxButton* frequent_notes = new wxButton(this, ID_TRANS_FREQUENT_NOTES, "..."
+    frequent_notes = new wxButton(this, ID_TRANS_FREQUENT_NOTES, "..."
         , wxDefaultPosition, wxSize(m_attachment->GetSize().GetX(), -1));
     mmToolTip(frequent_notes, _("Select one of the frequently used notes"));
     frequent_notes->Connect(ID_TRANS_FREQUENT_NOTES
@@ -222,7 +212,7 @@ void UserTransactionPanel::Create()
 void UserTransactionPanel::DataToControls()
 {
     if (!m_checking_entry) return;
-        
+
     wxDateTime trans_date;
     trans_date.ParseDate(m_checking_entry->TRANSDATE);
     TransactionDate(trans_date);
@@ -232,23 +222,40 @@ void UserTransactionPanel::DataToControls()
     m_account->SetLabelText(Model_Account::get_account_name(m_account_id));
     m_type_selector->SetSelection(Model_Checking::type(m_checking_entry->TRANSCODE));
 
+    if (m_account_id > 0)
+    {
+        Model_Currency::Data* currency = Model_Account::currency(Model_Account::instance().get(m_account_id));
+        m_trans_currency->SetLabelText(currency->CURRENCY_SYMBOL);
+        m_entered_amount->SetCurrency(currency);
+    }
+
     SetTransactionValue(m_checking_entry->TRANSAMOUNT);
     m_status_selector->SetSelection(Model_Checking::status(m_checking_entry->STATUS));
 
     m_payee_id = m_checking_entry->PAYEEID;
     m_payee->SetLabelText(Model_Payee::get_payee_name(m_payee_id));
-    
+
     m_category_id = m_checking_entry->CATEGID;
-    m_subcategory_id = m_checking_entry->SUBCATEGID;
-    m_category->SetLabelText(Model_Category::full_name(m_category_id, m_subcategory_id));
+    m_category->SetLabelText(Model_Category::full_name(m_category_id));
 
     m_entered_number->SetValue(m_checking_entry->TRANSACTIONNUMBER);
     m_entered_notes->SetValue(m_checking_entry->NOTES);
 
-    if (m_account_id > 0)
+    if (!m_checking_entry->DELETEDTIME.IsEmpty())
     {
-        Model_Currency::Data* currency = Model_Account::currency(Model_Account::instance().get(m_account_id));
-        m_trans_currency->SetLabelText(currency->CURRENCY_SYMBOL);
+        m_date_selector->Enable(false);
+        m_account->Enable(false);
+        m_type_selector->Enable(false);
+        m_status_selector->Enable(false);
+        m_transfer->Enable(false);
+        m_entered_amount->Enable(false);
+        m_trans_currency->Enable(false);
+        m_payee->Enable(false);
+        m_category->Enable(false);
+        m_entered_number->Enable(false);
+        m_attachment->Enable(false);
+        m_entered_notes->Enable(false);
+        frequent_notes->Enable(false);
     }
 }
 
@@ -256,19 +263,21 @@ void UserTransactionPanel::SetLastPayeeAndCategory(const int account_id)
 {
     if (Option::instance().TransPayeeSelection() == Option::LASTUSED)
     {
-        Model_Checking::Data_Set trans_list = Model_Checking::instance().find(Model_Checking::ACCOUNTID(account_id));
+        Model_Checking::Data_Set trans_list = Model_Checking::instance().find(Model_Checking::ACCOUNTID(account_id), Model_Checking::TRANSCODE(Model_Checking::TRANSFER, NOT_EQUAL));
         if (!trans_list.empty())
         {
             int last_trans_pos = trans_list.size() - 1;
 
             Model_Payee::Data* last_payee = Model_Payee::instance().get(trans_list.at(last_trans_pos).PAYEEID);
-            m_payee->SetLabelText(last_payee->PAYEENAME);
-
-            if (Option::instance().TransCategorySelectionNonTransfer() == Option::LASTUSED)
-            {
+            if (last_payee) {
+                m_payee->SetLabelText(last_payee->PAYEENAME);
                 m_payee_id = last_payee->PAYEEID;
-                m_category_id = last_payee->CATEGID;
-                m_category->SetLabelText(Model_Category::full_name(last_payee->CATEGID, last_payee->SUBCATEGID));
+                if ((Option::instance().TransCategorySelectionNonTransfer() == Option::LASTUSED)
+                    && (!Model_Category::is_hidden(last_payee->CATEGID)))
+                {
+                    m_category_id = last_payee->CATEGID;
+                    m_category->SetLabelText(Model_Category::full_name(last_payee->CATEGID));
+                }
             }
         }
     }
@@ -300,16 +309,13 @@ void UserTransactionPanel::OnTransPayeeButton(wxCommandEvent& WXUNUSED(event))
             m_payee->SetLabelText(payee->PAYEENAME);
 
             // Only for new transactions: if user want to autofill last category used for payee and category has not been set.
-            if ((Option::instance().TransCategorySelectionNonTransfer() == Option::LASTUSED) && (m_category_id < 0) && (m_subcategory_id < 0))
+            if ((Option::instance().TransCategorySelectionNonTransfer() == Option::LASTUSED) && (m_category_id < 0) && (m_subcategory_id < 0)
+                        && (!Model_Category::is_hidden(payee->CATEGID)))
             {
                 if (payee->CATEGID > 0)
                 {
                     m_category_id = payee->CATEGID;
-                    if (payee->SUBCATEGID > 0)
-                    {
-                        m_subcategory_id = payee->SUBCATEGID;
-                    }
-                    m_category->SetLabelText(Model_Category::full_name(m_category_id, m_subcategory_id));
+                    m_category->SetLabelText(Model_Category::full_name(m_category_id));
                 }
             }
         }
@@ -318,27 +324,11 @@ void UserTransactionPanel::OnTransPayeeButton(wxCommandEvent& WXUNUSED(event))
 
 void UserTransactionPanel::OnTransCategoryButton(wxCommandEvent& WXUNUSED(event))
 {
-    mmCategDialog dlg(this, true, m_category_id, m_subcategory_id);
+    mmCategDialog dlg(this, true, m_category_id);
     if (dlg.ShowModal() == wxID_OK)
     {
         m_category_id = dlg.getCategId();
-        m_subcategory_id = dlg.getSubCategId();
-        m_category->SetLabelText(Model_Category::full_name(m_category_id, m_subcategory_id));
-    }
-}
-
-void UserTransactionPanel::OnEnteredText(wxCommandEvent& event)
-{
-    Model_Currency::Data *currency = Model_Currency::GetBaseCurrency();
-    int currency_precision = Model_Currency::precision(currency);
-
-    Model_Account::Data *account = Model_Account::instance().get(m_account_id);
-    if (account) {
-        currency = Model_Account::currency(account);
-    }
-
-    if (event.GetId() == m_entered_amount->GetId()) {
-        m_entered_amount->Calculate(currency_precision);
+        m_category->SetLabelText(Model_Category::full_name(m_category_id));
     }
 }
 
@@ -393,7 +383,7 @@ void UserTransactionPanel::TransactionDate(const wxDateTime& trans_date)
 
 void UserTransactionPanel::SetTransactionValue(const double& trans_value, bool fixed_value)
 {
-    m_entered_amount->SetValue(trans_value, 2);
+    m_entered_amount->SetValue(trans_value);
     if (fixed_value) {
         m_entered_amount->Enable(false);
     }
@@ -402,6 +392,25 @@ void UserTransactionPanel::SetTransactionValue(const double& trans_value, bool f
 void UserTransactionPanel::SetTransactionNumber(const wxString& trans_number)
 {
     m_entered_number->SetValue(trans_number);
+}
+
+void UserTransactionPanel::SetTransactionStatus(const int trans_status_enum)
+{
+    m_status_selector->SetSelection(trans_status_enum);
+}
+
+void UserTransactionPanel::SetTransactionPayee(const int payeeid)
+{
+    m_payee_id = payeeid;
+    Model_Payee::Data* payee = Model_Payee::instance().get(m_payee_id);
+    if (payee)
+        m_payee->SetLabelText(payee->PAYEENAME);
+}
+
+void UserTransactionPanel::SetTransactionCategory(const int categid)
+{
+    m_category_id = categid;
+    m_category->SetLabelText(Model_Category::full_name(m_category_id));
 }
 
 void UserTransactionPanel::SetTransactionAccount(const wxString& trans_account)
@@ -413,6 +422,7 @@ void UserTransactionPanel::SetTransactionAccount(const wxString& trans_account)
         m_account_id = account->ACCOUNTID;
         SetLastPayeeAndCategory(m_account_id);
         Model_Currency::Data* currency = Model_Currency::instance().get(account->CURRENCYID);
+        m_entered_amount->SetCurrency(currency);
         m_trans_currency->SetLabelText(currency->CURRENCY_SYMBOL);
     }
 }
@@ -436,7 +446,16 @@ void UserTransactionPanel::CheckingType(Model_Translink::CHECKING_TYPE ct)
 int UserTransactionPanel::SaveChecking()
 {
     double initial_amount = 0;
+    wxString trxDate = m_date_selector->GetValue().FormatISODate();
+
     m_entered_amount->checkValue(initial_amount);
+    
+    const Model_Account::Data* account = Model_Account::instance().get(m_account_id);
+    if (trxDate < account->INITIALDATE)
+    {
+        mmErrorDialogs::ToolTip4Object(m_account, _("The opening date for the account is later than the date of this transaction"), _("Invalid Date"));
+        return -1;
+    }  
 
     if (!m_checking_entry) {
         m_checking_entry = Model_Checking::instance().create();
@@ -448,14 +467,14 @@ int UserTransactionPanel::SaveChecking()
     m_checking_entry->PAYEEID = m_payee_id;
     m_checking_entry->TRANSCODE = Model_Checking::instance().all_type()[TransactionType()];
     m_checking_entry->TRANSAMOUNT = initial_amount;
-    m_checking_entry->STATUS = Model_Checking::all_status()[TransactionType()].Mid(0, 1);
+    m_checking_entry->STATUS = m_status_selector->GetStringSelection().Mid(0, 1);
     m_checking_entry->TRANSACTIONNUMBER = m_entered_number->GetValue();
     m_checking_entry->NOTES = m_entered_notes->GetValue();
     m_checking_entry->CATEGID = m_category_id;
-    m_checking_entry->SUBCATEGID = m_subcategory_id;
-    m_checking_entry->TRANSDATE = m_date_selector->GetValue().FormatISODate();
+    m_checking_entry->TRANSDATE = trxDate;
     m_checking_entry->FOLLOWUPID = 0;
     m_checking_entry->TOTRANSAMOUNT = m_checking_entry->TRANSAMOUNT;
+    m_checking_entry->COLOR = 0;
 
     return Model_Checking::instance().save(m_checking_entry);
 }

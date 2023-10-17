@@ -35,11 +35,6 @@ mmListCtrl::mmListCtrl(wxWindow *parent, wxWindowID winid)
         , wxLC_REPORT | wxLC_HRULES | wxLC_VRULES | wxLC_VIRTUAL | wxLC_SINGLE_SEL | wxLC_AUTOARRANGE)
     , attr1_(new wxListItemAttr(*bestFontColour(mmThemeMetaColour(meta::COLOR_LISTALT0)), mmThemeMetaColour(meta::COLOR_LISTALT0), wxNullFont))
     , attr2_(new wxListItemAttr(*bestFontColour(mmThemeMetaColour(meta::COLOR_LIST)), mmThemeMetaColour(meta::COLOR_LIST), wxNullFont))
-    , m_selected_row(-1)
-    , m_selected_col(0)
-    , m_asc(true)
-    , m_ColumnHeaderNbr(-1)
-    , m_default_sort_column(-1)
 {
 }
 
@@ -135,7 +130,7 @@ void mmListCtrl::OnColRightClick(wxListEvent& event)
         }
         menu.AppendSubMenu(submenu, _("Hide/Show Columns"));
         menu.Append(MENU_HEADER_HIDE, _("Hide this column"));
-        if (m_default_sort_column >= 0)
+        if (m_default_sort_column >= 0 && (m_columns[m_ColumnHeaderNbr].SORTABLE == true))
             menu.Append(MENU_HEADER_SORT, _("Order by this column"));
         menu.Append(MENU_HEADER_RESET, _("Reset columns"));
         PopupMenu(&menu);

@@ -33,6 +33,7 @@ mmPrintableBase::mmPrintableBase(const wxString& title)
     , m_date_selection(0)
     , m_account_selection(0)
     , m_chart_selection(0)
+    , m_forward_months(24)
     , accountArray_(nullptr)
     , m_only_active(false)
     , m_id(-1)
@@ -43,7 +44,6 @@ mmPrintableBase::mmPrintableBase(const wxString& title)
 
 mmPrintableBase::~mmPrintableBase()
 {
-
 }
 
 void mmPrintableBase::setReportParameters(int id)
@@ -63,8 +63,9 @@ void mmPrintableBase::setReportParameters(int id)
     case IncomevsExpensesMonthly:     m_parameters = DATE_RANGE | ACCOUNTS_LIST | CHART; break;
     case BudgetPerformance:           m_parameters = BUDGET_DATES | ACCOUNTS_LIST; break;
     case BudgetCategorySummary:       m_parameters = BUDGET_DATES | CHART; break;
-    case MonthlyCashFlow:             m_parameters = ACCOUNTS_LIST | CHART; break;
-    case DailyCashFlow:               m_parameters = ACCOUNTS_LIST | CHART; break;
+    case MonthlyCashFlow:             m_parameters = FORWARD_MONTHS | ACCOUNTS_LIST | CHART; break;
+    case DailyCashFlow:               m_parameters = FORWARD_MONTHS | ACCOUNTS_LIST | CHART; break;
+    case TransactionsCashFlow:        m_parameters = FORWARD_MONTHS | ACCOUNTS_LIST | CHART; break;
     case StocksReportPerformance:     m_parameters = DATE_RANGE; break;
     case StocksReportSummary:         m_parameters = NONE; break;
     case ForecastReport:              m_parameters = DATE_RANGE; break;
@@ -122,6 +123,13 @@ void mmPrintableBase::setReportSettings()
             json_writer.Int(m_chart_selection);
         }
 
+        if (m_parameters & FORWARD_MONTHS)
+        {
+            isActive = true;
+            json_writer.Key("FORWARDMONTHS");
+            json_writer.Int(m_forward_months);
+        }
+
         json_writer.EndObject();
         if (isActive)
         {
@@ -146,6 +154,11 @@ void mmPrintableBase::restoreReportSettings()
     if (j_doc.HasMember("CHART") && j_doc["CHART"].IsInt()) {
         m_chart_selection = j_doc["CHART"].GetInt();
     }
+
+    if (j_doc.HasMember("FORWARDMONTHS") && j_doc["FORWARDMONTHS"].IsInt()) {
+        m_forward_months = j_doc["FORWARDMONTHS"].GetInt();
+    }
+
 
     m_account_selection = -1;
     int selection = 0;
@@ -334,6 +347,9 @@ int mmGeneralReport::report_parameters()
         params |= SINGLE_DATE;
     else if (content.Contains("&only_years"))
         params |= ONLY_YEARS;
+
+    if (content.Contains("&single_time"))
+        params |= TIME;
 
     return params;
 }

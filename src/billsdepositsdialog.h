@@ -43,6 +43,7 @@ class mmBDDialog : public wxDialog
 
 public:
     mmBDDialog();
+    ~mmBDDialog();
     mmBDDialog(wxWindow* parent, int bdD, bool duplicate, bool enterOccur);
     int GetTransID()
     {
@@ -54,10 +55,11 @@ public:
 
 private:
     bool Create(wxWindow* parent, wxWindowID id = wxID_ANY,
-        const wxString& caption = _("New Recurring Transaction"),
+        const wxString& caption = _("New Scheduled Transaction"),
         const wxPoint& pos = wxDefaultPosition,
         const wxSize& size = wxDefaultSize,
-        long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX);
+        long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX,
+        const wxString& name = "Scheduled Transaction Dialog");
 
     void CreateControls();
 
@@ -76,8 +78,8 @@ private:
     void OnAccountUpdated(wxCommandEvent& event);
     void OnAutoExecutionUserAckChecked(wxCommandEvent& event);
     void OnAutoExecutionSilentChecked(wxCommandEvent& event);
-    void OnTextEntered(wxCommandEvent& event);
     void OnFocusChange(wxChildFocusEvent& event);
+    void SetAmountCurrencies(int accountID, int toAccountID);
     int m_trans_id;
 
     bool m_new_bill;
@@ -113,9 +115,11 @@ private:
     wxStaticText* staticTextRepeats_;
     wxBitmapButton* m_btn_due_prev_date;
     wxBitmapButton* m_btn_due_date;
+    mmTagTextCtrl* tagTextCtrl_;
 
     bool m_transfer;
     int object_in_focus_;
+    wxSize min_size_;
     Model_Billsdeposits::Bill_Data m_bill_data;
 
     std::vector<wxString> frequentNotes_;
@@ -148,7 +152,6 @@ private:
     enum
     {
         ID_DIALOG_TRANS_TYPE = wxID_HIGHEST + 200,
-        mmID_CATEGORY,
         ID_DIALOG_TRANS_BUTTONSPLIT,
         ID_DIALOG_TRANS_CATEGLABEL,
         ID_DIALOG_TRANS_STATIC_ACCOUNT,

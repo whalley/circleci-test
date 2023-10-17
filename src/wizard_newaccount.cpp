@@ -1,5 +1,6 @@
 /*******************************************************
  Copyright (C) 2006 Madhan Kanagavel
+Copyright (C) 2022  Mark Whalley (mark@ipx.co.uk)
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -67,6 +68,7 @@ void mmAddAccountWizard::RunIt()
         account->ACCOUNTTYPE = Model_Account::all_type()[accountType_];
         account->ACCOUNTNAME = accountName_;
         account->INITIALBAL = 0;
+        account->INITIALDATE = wxDate::Today().FormatISODate();
         account->CURRENCYID = currencyID_;
 
         Model_Account::instance().save(account);
@@ -90,7 +92,7 @@ void mmAddAccountNamePage::processPage(wxWizardEvent& event)
         {
             if (Model_Account::instance().get(account_name))
             {
-                wxMessageBox(_("Account Name already exists"), _("New Account"), wxOK|wxICON_ERROR, this);
+                wxMessageBox(_("An account with this name already exists"), _("New Account"), wxOK|wxICON_ERROR, this);
                 event.Veto();
             }
         }
@@ -161,7 +163,7 @@ bool mmAddAccountTypePage::TransferDataFromWindow()
     {
         wxString errorMsg;
         errorMsg << _("Base Account Currency Not set.") << "\n"
-                 << _("Set that first using Tools->Options menu and then add a new account.");
+                 << _("Set that first using Tools → Options menu and then add a new account.");
         wxMessageBox( errorMsg, _("New Account"), wxOK|wxICON_WARNING, this);
         return false;
     }

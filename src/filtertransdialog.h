@@ -47,10 +47,14 @@ public:
 
     virtual int ShowModal();
 
-    bool mmIsRecordMatches(const Model_Checking::Data &tran
+    int mmIsRecordMatches(const Model_Checking::Data &tran
         , const std::map<int, Model_Splittransaction::Data_Set>& split);
-    bool mmIsRecordMatches(const Model_Billsdeposits::Data &tran
+    int mmIsRecordMatches(const Model_Billsdeposits::Data &tran
         , const std::map<int, Model_Budgetsplittransaction::Data_Set>& split);
+    template<class MODEL, class DATA = typename MODEL::DATA>
+    bool mmIsRecordMatches(const DATA& tran, bool mergeSplitTags = false);
+    template<class MODEL, class DATA = typename MODEL::DATA>
+    bool mmIsSplitRecordMatches(const DATA& split);
     const wxString mmGetDescriptionToolTip() const;
     const wxString mmGetCategoryPattern() const;
     void mmGetDescription(mmHTMLBuilder &hb);
@@ -64,11 +68,15 @@ public:
     bool mmIsRangeChecked() const;
     bool mmIsDateRangeChecked() const;
     bool mmIsHideColumnsChecked() const;
+    bool mmIsCombineSplitsChecked() const;
+    bool mmIsTagsChecked() const;
+
 public:
     enum groupBy {
         GROUPBY_ACCOUNT,
         GROUPBY_PAYEE,
-        GROUPBY_CATEGORY
+        GROUPBY_CATEGORY,
+        GROUPBY_TYPE
     };
     int mmGetGroupBy() const;
 
@@ -91,10 +99,10 @@ private:
     double mmGetAmountMax() const;
     double mmGetAmountMin() const;
 
-    template<class MODEL, class DATA = typename MODEL::DATA>
-    bool mmIsPayeeMatches(const DATA &tran);
-    template<class MODEL, class DATA = typename MODEL::Data>
-    bool mmIsCategoryMatches(const DATA& tran, const std::map<int, typename MODEL::Split_Data_Set>& splits);
+    bool mmIsPayeeMatches(int payeeid);
+    bool mmIsCategoryMatches(int categid);
+    bool mmIsNoteMatches(const wxString& note);
+    bool mmIsTagMatches(const wxString& refType, int refId, bool mergeSplitTags = false);
 
     void setTransferTypeCheckBoxes();
 
@@ -118,7 +126,7 @@ private:
     bool mmIsNotesChecked() const;
     bool mmIsColorChecked() const;
     bool mmIsCustomFieldChecked() const;
-    bool mmIsCustomFieldMatches(const Model_Checking::Data& tran) const;
+    bool mmIsCustomFieldMatches(int transid) const;
 
     /// Creation
     bool Create(wxWindow* parent
@@ -126,7 +134,9 @@ private:
         , const wxString& caption = _("Transaction Filter")
         , const wxPoint& pos = wxDefaultPosition
         , const wxSize& size = wxDefaultSize
-        , long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX);
+        , long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX
+        , const wxString& name = "Transaction Filter"
+    );
 private:
     /// Creates the controls and sizers
     void mmDoCreateControls();
@@ -137,6 +147,7 @@ private:
 
     /// wxEVT_COMMAND_CHECKBOX_CLICKED event handler for ID_CHECKBOXACCOUNT
     void OnCheckboxClick( wxCommandEvent& event );
+    void OnComboKey(wxKeyEvent& event);
     void OnCategoryChange(wxEvent& event);
     void OnButtonOkClick(wxCommandEvent& event);
     void OnButtonCancelClick(wxCommandEvent& event);
@@ -184,12 +195,15 @@ private:
     wxBitmapButton* m_itemButtonClear;
     wxCheckBox* transNumberCheckBox_;
     wxTextCtrl* transNumberEdit_;
+    wxCheckBox* tagCheckBox_;
+    mmTagTextCtrl* tagTextCtrl_;
     wxCheckBox* colorCheckBox_;
     mmColorButton* colorButton_;
     wxCheckBox* showColumnsCheckBox_;
     wxButton* bHideColumns_;
     wxCheckBox* groupByCheckBox_;
     wxChoice* bGroupBy_;
+    wxCheckBox* combineSplitsCheckBox_;
 private:
     wxString m_settings_json;
     std::vector<wxSharedPtr<mmDateRange>> m_all_date_ranges;
@@ -198,7 +212,7 @@ private:
     wxString m_filter_key;
     int m_startDay;
     bool m_futureIgnored;
-    int m_color_value;
+    int m_color_value = -1;
     wxString m_payee_str;
 
     /* Selected accounts values */
@@ -207,18 +221,19 @@ private:
     //Selected accountns ID
     wxArrayInt m_selected_accounts_id;
     wxArrayInt m_selected_columns_id;
+    wxArrayInt m_selected_categories_id;
     wxSharedPtr<mmCustomData> m_custom_fields;
 
     enum
     {
-        /* FIlter Dialog */
+        /* Filter Dialog */
         ID_DIALOG_COLUMNS = wxID_HIGHEST + 897,
         ID_BTN_CUSTOMFIELDS,
-        ID_CUSTOMFIELDS,
         ID_DATE_RANGE,
         ID_PERIOD_CB,
         ID_ACCOUNT_CB,
-        ID_DATE_RANGE_CB
+        ID_DATE_RANGE_CB,
+        ID_CUSTOMFIELDS
     };
 };
 
@@ -242,7 +257,9 @@ inline bool mmFilterTransactionsDialog::mmIsCategoryChecked() const { return cat
 inline bool mmFilterTransactionsDialog::mmIsCategorySubCatChecked() const { return categorySubCatCheckBox_->IsChecked(); }
 inline bool mmFilterTransactionsDialog::mmIsStatusChecked() const { return statusCheckBox_->IsChecked(); }
 inline const wxString mmFilterTransactionsDialog::mmGetLabelString() const { return  m_setting_name->GetStringSelection(); }
-inline const wxString mmFilterTransactionsDialog::mmGetCategoryPattern() const { return categoryComboBox_->GetValue(); }
+inline const wxString mmFilterTransactionsDialog::mmGetCategoryPattern() const { return categoryComboBox_->mmGetPattern(); }
+inline bool mmFilterTransactionsDialog::mmIsCombineSplitsChecked() const { return combineSplitsCheckBox_->IsChecked(); }
+inline bool mmFilterTransactionsDialog::mmIsTagsChecked() const { return tagCheckBox_->IsChecked(); }
 
 #endif
 // FILTERTRANSDIALOG_H_

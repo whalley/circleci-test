@@ -3,7 +3,7 @@
 ** Purpose:     Implementation of wxSQLite3 classes
 ** Author:      Ulrich Telle
 ** Created:     2005-07-06
-** Copyright:   (c) 2005-2019 Ulrich Telle and the wxSQLite3 contributors
+** Copyright:   (c) 2005-2022 Ulrich Telle and the wxSQLite3 contributors
 ** SPDX-License-Identifier: LGPL-3.0+ WITH WxWindows-exception-3.1
 */
 
@@ -40,103 +40,13 @@
 #pragma warning (disable:4610)
 #endif
 
-#if WXSQLITE3_HAVE_CODEC
-#define SQLITE_HAS_CODEC 1
-#else
-#define SQLITE_HAS_CODEC 0
-#endif
+#include "sqlite3mc_config.h"
+#include "sqlite3mc_amalgamation.h"
 
-#include "sqlite3secure.h"
-#if WXSQLITE3_USER_AUTHENTICATION
-#ifndef SQLITE_USER_AUTHENTICATION
-#define SQLITE_USER_AUTHENTICATION
+// Check for minimal required SQLite version
+#if SQLITE_VERSION_NUMBER < 3032000
+#error SQLite version 3.32.0 or higher required.
 #endif
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "sqlite3userauth.h"
-#ifdef __cplusplus
-}
-#endif
-#endif
-// Dynamic loading of the SQLite library
-
-#if wxUSE_DYNAMIC_SQLITE3_LOAD
-
-#include "wx/dynlib.h"
-
-#define DYNFUNC(rcode, rtype, fname, farg, farguse) \
-  typedef rtype (*p##fname) farg ; \
-  static p##fname s_##fname = NULL;
-#include "wx/wxsqlite3dyn.h"
-#undef DYNFUNC
-
-static wxDynamicLibrary s_dll;
-
-static void InitSQLite3DLL()
-{
-  if (s_dll.IsLoaded())
-  {
-    return;
-  }
-
-#ifdef __WIN32__
-  if (! s_dll.Load(wxS("sqlite3")))
-#else
-  if (! s_dll.Load(wxS("libsqlite3")))
-#endif
-  {
-    throw wxSQLite3Exception(-1, wxS("error loading dynamic library"));
-  }
-
-#define DYNFUNC(rcode, rtype, fname, farg, farguse) \
-  s_##fname = (p##fname) s_dll.GetSymbol(wxS(#fname));\
-  if (! s_##fname)\
-  {\
-    s_dll.Unload();\
-    throw wxSQLite3Exception(-1, wxS("error getting symbol <") wxS(#fname) wxS(">"));\
-  }
-#include "wx/wxsqlite3dyn.h"
-#undef DYNFUNC
-
-};
-
-#define DYNFUNC(rcode, rtype, fname, farg, farguse) \
-  rtype fname farg \
-  {\
-    InitSQLite3DLL();\
-    rcode s_##fname farguse;\
-  };
-#include "wx/wxsqlite3dyn.h"
-#undef DYNFUNC
-
-#else
-// Define Windows specific SQLite API functions (not defined in sqlite3.h)
-#if SQLITE_VERSION_NUMBER >= 3007014
-#if defined(__WXMSW__)
-#ifdef __cplusplus
-extern "C" {
-#endif
-#if SQLITE_VERSION_NUMBER < 3024000
-SQLITE_API int sqlite3_win32_set_directory(DWORD type, LPCWSTR zValue);
-#endif
-#ifdef __cplusplus
-}
-#endif
-#endif
-#endif
-
-// Define functions for the configuration of the wxSQLite3 encryption extension
-#ifdef __cplusplus
-extern "C" {
-#endif
-SQLITE_API int wxsqlite3_config(sqlite3* db, const char* paramName, int newValue);
-SQLITE_API int wxsqlite3_config_cipher(sqlite3* db, const char* cipherName, const char* paramName, int newValue);
-#ifdef __cplusplus
-}
-#endif
-
-#endif // wxUSE_DYNAMIC_SQLITE3_LOAD
 
 typedef int (*sqlite3_xauth)(void*,int,const char*,const char*,const char*,const char*);
 
@@ -145,7 +55,7 @@ typedef int (*sqlite3_xauth)(void*,int,const char*,const char*,const char*,const
 static int wxSQLite3FunctionContextExecAuthorizer(void* func, int type,
   const char* arg1, const char* arg2,
   const char* arg3, const char* arg4
-#if WXSQLITE3_USER_AUTHENTICATION
+#if SQLITE_USER_AUTHENTICATION
   , const char* arg5
 #endif
   );
@@ -207,6 +117,8 @@ const err_char_t* wxERRMSG_CIPHER_APPLY_FAILED = wxTRANSLATE("Application of cip
 const err_char_t* wxERRMSG_CIPHER_NOT_SUPPORTED = wxTRANSLATE("Cipher not supported");
 
 const err_char_t* wxERRMSG_INVALID_COLLECTION = wxTRANSLATE("Collection instance not properly initialized");
+
+const err_char_t* wxERRMSG_SCHEMANAME_UNKNOWN = wxTRANSLATE("Schema name unknown");
 
 static const char* LocalMakePointerTypeCopy(wxArrayPtrVoid& ptrTypes, const wxString& pointerType)
 {
@@ -1308,7 +1220,7 @@ void wxSQLite3ResultSet::CheckStmt() const
 
 wxString wxSQLite3ResultSet::GetDatabaseName(int columnIndex) const
 {
-#if WXSQLITE3_HAVE_METADATA
+#if SQLITE_ENABLE_COLUMN_METADATA
   CheckStmt();
   if (columnIndex < 0 || columnIndex > m_cols-1)
   {
@@ -1328,7 +1240,7 @@ wxString wxSQLite3ResultSet::GetDatabaseName(int columnIndex) const
 
 wxString wxSQLite3ResultSet::GetTableName(int columnIndex) const
 {
-#if WXSQLITE3_HAVE_METADATA
+#if SQLITE_ENABLE_COLUMN_METADATA
   CheckStmt();
   if (columnIndex < 0 || columnIndex > m_cols-1)
   {
@@ -1348,7 +1260,7 @@ wxString wxSQLite3ResultSet::GetTableName(int columnIndex) const
 
 wxString wxSQLite3ResultSet::GetOriginName(int columnIndex) const
 {
-#if WXSQLITE3_HAVE_METADATA
+#if SQLITE_ENABLE_COLUMN_METADATA
   CheckStmt();
   if (columnIndex < 0 || columnIndex > m_cols-1)
   {
@@ -2594,19 +2506,15 @@ wxSQLite3Database::SetSharedCache(bool enable)
   ms_sharedCacheEnabled = enable;
 }
 
-#if WXSQLITE3_HAVE_CODEC
 bool wxSQLite3Database::ms_hasEncryptionSupport = true;
-#else
-bool wxSQLite3Database::ms_hasEncryptionSupport = false;
-#endif
 
-#if WXSQLITE3_HAVE_METADATA
+#if SQLITE_ENABLE_COLUMN_METADATA
 bool wxSQLite3Database::ms_hasMetaDataSupport = true;
 #else
 bool wxSQLite3Database::ms_hasMetaDataSupport = false;
 #endif
 
-#if WXSQLITE3_USER_AUTHENTICATION
+#if SQLITE_USER_AUTHENTICATION
 bool wxSQLite3Database::ms_hasUserAuthentication = true;
 #else
 bool wxSQLite3Database::ms_hasUserAuthentication = false;
@@ -2624,35 +2532,15 @@ bool wxSQLite3Database::ms_hasNamedCollectionSupport = true;
 bool wxSQLite3Database::ms_hasNamedCollectionSupport = false;
 #endif
 
-#if SQLITE_VERSION_NUMBER >= 3004000
 bool wxSQLite3Database::ms_hasIncrementalBlobSupport = true;
-#else
-bool wxSQLite3Database::ms_hasIncrementalBlobSupport = false;
-#endif
 
-#if SQLITE_VERSION_NUMBER >= 3006008
 bool wxSQLite3Database::ms_hasSavepointSupport = true;
-#else
-bool wxSQLite3Database::ms_hasSavepointSupport = false;
-#endif
 
-#if SQLITE_VERSION_NUMBER >= 3006011
 bool wxSQLite3Database::ms_hasBackupSupport = true;
-#else
-bool wxSQLite3Database::ms_hasBackupSupport = false;
-#endif
 
-#if SQLITE_VERSION_NUMBER >= 3007000
 bool wxSQLite3Database::ms_hasWriteAheadLogSupport = true;
-#else
-bool wxSQLite3Database::ms_hasWriteAheadLogSupport = false;
-#endif
 
-#if SQLITE_VERSION_NUMBER >= 3020000
 bool wxSQLite3Database::ms_hasPointerParamsSupport = true;
-#else
-bool wxSQLite3Database::ms_hasPointerParamsSupport = false;
-#endif
 
 bool
 wxSQLite3Database::HasEncryptionSupport()
@@ -2818,7 +2706,6 @@ void wxSQLite3Database::Open(const wxString& fileName, const wxMemoryBuffer& key
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
 
-#if WXSQLITE3_HAVE_CODEC
   if (key.GetDataLen() > 0)
   {
     rc = sqlite3_key(db, key.GetData(), (int) key.GetDataLen());
@@ -2830,9 +2717,6 @@ void wxSQLite3Database::Open(const wxString& fileName, const wxMemoryBuffer& key
     }
     m_isEncrypted = true;
   }
-#else
-  wxUnusedVar(key);
-#endif
 
   wxSQLite3DatabaseReference* dbPrev = m_db;
   m_db = new wxSQLite3DatabaseReference(db);
@@ -2883,7 +2767,6 @@ void wxSQLite3Database::Open(const wxString& fileName, const wxSQLite3Cipher& ci
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
 
-#if WXSQLITE3_HAVE_CODEC
   if (cipher.IsOk())
   {
     if (!cipher.Apply(db))
@@ -2903,9 +2786,6 @@ void wxSQLite3Database::Open(const wxString& fileName, const wxSQLite3Cipher& ci
     }
     m_isEncrypted = true;
   }
-#else
-  wxUnusedVar(key);
-#endif
 
   wxSQLite3DatabaseReference* dbPrev = m_db;
   m_db = new wxSQLite3DatabaseReference(db);
@@ -2977,21 +2857,16 @@ void wxSQLite3Database::AttachDatabase(const wxString& fileName, const wxString&
 
 void wxSQLite3Database::AttachDatabase(const wxString& fileName, const wxString& schemaName, const wxString& key)
 {
-#if WXSQLITE3_HAVE_CODEC
   CheckDatabase();
   wxSQLite3Statement attachStmt = PrepareStatement("ATTACH DATABASE ? AS ? KEY ?");
   attachStmt.Bind(1, fileName);
   attachStmt.Bind(2, schemaName);
   attachStmt.Bind(3, key);
   int rc = attachStmt.ExecuteUpdate();
-#else
-  AttachDatabase(fileName, schemaName);
-#endif
 }
 
 void wxSQLite3Database::AttachDatabase(const wxString& fileName, const wxString& schemaName, const wxSQLite3Cipher& cipher, const wxString& key)
 {
-#if WXSQLITE3_HAVE_CODEC
   CheckDatabase();
   if (cipher.IsOk())
   {
@@ -3006,9 +2881,6 @@ void wxSQLite3Database::AttachDatabase(const wxString& fileName, const wxString&
   attachStmt.Bind(2, schemaName);
   attachStmt.Bind(3, key);
   int rc = attachStmt.ExecuteUpdate();
-#else
-  AttachDatabase(fileName, schemaName);
-#endif
 }
 
 void wxSQLite3Database::DetachDatabase(const wxString& schemaName)
@@ -3079,7 +2951,6 @@ void wxSQLite3Database::Backup(wxSQLite3BackupProgress* progressCallback,
                                const wxString& targetFileName, const wxSQLite3Cipher& cipher, 
                                const wxMemoryBuffer& key, const wxString& sourceDatabaseName)
 {
-#if SQLITE_VERSION_NUMBER >= 3006011
   CheckDatabase();
 
   wxCharBuffer strFileName = targetFileName.ToUTF8();
@@ -3096,7 +2967,7 @@ void wxSQLite3Database::Backup(wxSQLite3BackupProgress* progressCallback,
     sqlite3_close(pDest);
     throw wxSQLite3Exception(rc, wxERRMSG_DBOPEN_FAILED);
   }
-#if WXSQLITE3_HAVE_CODEC
+
   if (key.GetDataLen() > 0)
   {
     if (cipher.IsOk())
@@ -3114,9 +2985,6 @@ void wxSQLite3Database::Backup(wxSQLite3BackupProgress* progressCallback,
       throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
     }
   }
-#else
-  wxUnusedVar(key);
-#endif
 
   pBackup = sqlite3_backup_init(pDest, "main", m_db->m_db, localSourceDatabaseName);
   if (pBackup == 0)
@@ -3156,11 +3024,6 @@ void wxSQLite3Database::Backup(wxSQLite3BackupProgress* progressCallback,
     sqlite3_close(pDest);
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
-#else
-  wxUnusedVar(targetFileName);
-  wxUnusedVar(sourceDatabaseName);
-  throw wxSQLite3Exception(WXSQLITE_ERROR, wxERRMSG_NOBACKUP);
-#endif
 }
 
 void wxSQLite3Database::Restore(const wxString& sourceFileName, const wxString& key, 
@@ -3212,7 +3075,6 @@ void wxSQLite3Database::Restore(wxSQLite3BackupProgress* progressCallback,
                                 const wxString& sourceFileName, const wxSQLite3Cipher& cipher,
                                 const wxMemoryBuffer& key, const wxString& targetDatabaseName)
 {
-#if SQLITE_VERSION_NUMBER >= 3006011
   CheckDatabase();
 
   wxCharBuffer strFileName = sourceFileName.ToUTF8();
@@ -3231,7 +3093,7 @@ void wxSQLite3Database::Restore(wxSQLite3BackupProgress* progressCallback,
     sqlite3_close(pSrc);
     throw wxSQLite3Exception(rc, wxERRMSG_DBOPEN_FAILED);
   }
-#if WXSQLITE3_HAVE_CODEC
+
   if (key.GetDataLen() > 0)
   {
     if (cipher.IsOk())
@@ -3249,9 +3111,6 @@ void wxSQLite3Database::Restore(wxSQLite3BackupProgress* progressCallback,
       throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
     }
   }
-#else
-  wxUnusedVar(key);
-#endif
 
   pBackup = sqlite3_backup_init(m_db->m_db, localTargetDatabaseName, pSrc, "main");
   if (pBackup == 0)
@@ -3300,11 +3159,6 @@ void wxSQLite3Database::Restore(wxSQLite3BackupProgress* progressCallback,
     sqlite3_close(pSrc);
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
-#else
-  wxUnusedVar(sourceFileName);
-  wxUnusedVar(targetDatabaseName);
-  throw wxSQLite3Exception(WXSQLITE_ERROR, wxERRMSG_NOBACKUP);
-#endif
 }
 
 void wxSQLite3Database::SetBackupRestorePageCount(int pageCount)
@@ -3370,6 +3224,44 @@ bool wxSQLite3Database::GetAutoCommit() const
 int wxSQLite3Database::QueryRollbackState() const
 {
   return m_lastRollbackRC;
+}
+
+wxSQLite3TransactionState wxSQLite3Database::QueryTransactionState(const wxString& schemaName) const
+{
+  wxSQLite3TransactionState state = WXSQLITE_TRANSACTION_NONE;
+  int txnState;
+  CheckDatabase();
+  if (schemaName.IsEmpty())
+  {
+    txnState = sqlite3_txn_state(m_db->m_db, NULL);
+  }
+  else
+  {
+    wxCharBuffer strSchema = schemaName.ToUTF8();
+    const char* localSchema = strSchema;
+    txnState = sqlite3_txn_state(m_db->m_db, localSchema);
+  }
+  if (txnState < 0)
+  {
+    throw wxSQLite3Exception(WXSQLITE_ERROR, wxERRMSG_SCHEMANAME_UNKNOWN);
+  }
+  else
+  {
+    switch (txnState)
+    {
+      case SQLITE_TXN_READ:
+        state = WXSQLITE_TRANSACTION_READ;
+        break;
+      case SQLITE_TXN_WRITE:
+        state = WXSQLITE_TRANSACTION_WRITE;
+        break;
+      case SQLITE_TXN_NONE:
+      default:
+        state = WXSQLITE_TRANSACTION_NONE;
+        break;
+    }
+  }
+  return state;
 }
 
 void wxSQLite3Database::Savepoint(const wxString& savepointName)
@@ -3608,13 +3500,13 @@ wxString wxSQLite3Database::ConvertJournalMode(wxSQLite3JournalMode mode)
 wxSQLite3JournalMode wxSQLite3Database::ConvertJournalMode(const wxString& mode)
 {
   wxSQLite3JournalMode journalMode;
-  if      (mode.IsSameAs(wxS("DELETE")))   journalMode = WXSQLITE_JOURNALMODE_DELETE;
-  else if (mode.IsSameAs(wxS("PERSIST")))  journalMode = WXSQLITE_JOURNALMODE_PERSIST;
-  else if (mode.IsSameAs(wxS("OFF")))      journalMode = WXSQLITE_JOURNALMODE_OFF;
-  else if (mode.IsSameAs(wxS("TRUNCATE"))) journalMode = WXSQLITE_JOURNALMODE_TRUNCATE;
-  else if (mode.IsSameAs(wxS("MEMORY")))   journalMode = WXSQLITE_JOURNALMODE_MEMORY;
-  else if (mode.IsSameAs(wxS("WAL")))      journalMode = WXSQLITE_JOURNALMODE_WAL;
-  else                                     journalMode = WXSQLITE_JOURNALMODE_DELETE;
+  if      (mode.IsSameAs(wxS("DELETE"), false))   journalMode = WXSQLITE_JOURNALMODE_DELETE;
+  else if (mode.IsSameAs(wxS("PERSIST"), false))  journalMode = WXSQLITE_JOURNALMODE_PERSIST;
+  else if (mode.IsSameAs(wxS("OFF"), false))      journalMode = WXSQLITE_JOURNALMODE_OFF;
+  else if (mode.IsSameAs(wxS("TRUNCATE"), false)) journalMode = WXSQLITE_JOURNALMODE_TRUNCATE;
+  else if (mode.IsSameAs(wxS("MEMORY"), false))   journalMode = WXSQLITE_JOURNALMODE_MEMORY;
+  else if (mode.IsSameAs(wxS("WAL"), false))      journalMode = WXSQLITE_JOURNALMODE_WAL;
+  else                                            journalMode = WXSQLITE_JOURNALMODE_DELETE;
   return journalMode;
 }
 
@@ -3768,7 +3660,9 @@ wxSQLite3Table wxSQLite3Database::GetTable(const char* sql)
   }
   else
   {
-    throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
+    wxString errmsg = wxString::FromUTF8(localError);
+    sqlite3_free(localError);
+    throw wxSQLite3Exception(rc, errmsg);
   }
 }
 
@@ -4153,7 +4047,7 @@ void wxSQLite3Database::ExecCollationNeeded(void* db, void*, int, const char* co
 void wxSQLite3Database::GetMetaData(const wxString& databaseName, const wxString& tableName, const wxString& columnName,
                                     wxString* dataType, wxString* collation, bool* notNull, bool* primaryKey, bool* autoIncrement)
 {
-#if WXSQLITE3_HAVE_METADATA
+#if SQLITE_ENABLE_COLUMN_METADATA
   CheckDatabase();
   wxCharBuffer strDatabaseName = databaseName.ToUTF8();
   const char* localDatabaseName = strDatabaseName;
@@ -4241,7 +4135,6 @@ void wxSQLite3Database::ReKey(const wxString& newKey)
 
 void wxSQLite3Database::ReKey(const wxSQLite3Cipher& cipher, const wxString& newKey)
 {
-#if WXSQLITE3_HAVE_CODEC
   wxCharBuffer strLocalNewKey = newKey.ToUTF8();
   const char* localNewKey = strLocalNewKey;
   wxMemoryBuffer binaryNewKey;
@@ -4250,10 +4143,6 @@ void wxSQLite3Database::ReKey(const wxSQLite3Cipher& cipher, const wxString& new
     binaryNewKey.AppendData((void*) localNewKey, strlen(localNewKey));
   }
   ReKey(cipher, binaryNewKey);
-#else
-  wxUnusedVar(newKey);
-  throw wxSQLite3Exception(WXSQLITE_ERROR, wxERRMSG_NOCODEC);
-#endif
 }
 
 void wxSQLite3Database::ReKey(const wxMemoryBuffer& newKey)
@@ -4263,7 +4152,6 @@ void wxSQLite3Database::ReKey(const wxMemoryBuffer& newKey)
 
 void wxSQLite3Database::ReKey(const wxSQLite3Cipher& cipher, const wxMemoryBuffer& newKey)
 {
-#if WXSQLITE3_HAVE_CODEC
   CheckDatabase();
   if (cipher.IsOk())
   {
@@ -4278,16 +4166,11 @@ void wxSQLite3Database::ReKey(const wxSQLite3Cipher& cipher, const wxMemoryBuffe
     const char* localError = sqlite3_errmsg(m_db->m_db);
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
-#else
-  wxUnusedVar(newKey);
-  throw wxSQLite3Exception(WXSQLITE_ERROR, wxERRMSG_NOCODEC);
-#endif
 }
 
 wxString wxSQLite3Database::GetKeySalt(const wxString& schemaName) const
 {
   wxString keySalt = wxEmptyString;
-#if WXSQLITE3_HAVE_CODEC
   if (IsOpen())
   {
     const char* localSchemaName = NULL;
@@ -4296,20 +4179,19 @@ wxString wxSQLite3Database::GetKeySalt(const wxString& schemaName) const
     {
       localSchemaName = strSchema;
     }
-    char* localKeySalt = (char*) wxsqlite3_codec_data(m_db->m_db, localSchemaName, "cipher_salt");
+    char* localKeySalt = (char*) sqlite3mc_codec_data(m_db->m_db, localSchemaName, "cipher_salt");
     if (localKeySalt != NULL)
     {
       keySalt = wxString::FromUTF8(localKeySalt);
       sqlite3_free(localKeySalt);
     }
   }
-#endif
   return keySalt;
 }
 
 bool wxSQLite3Database::UserLogin(const wxString& username, const wxString& password)
 {
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   wxCharBuffer strUsername = username.ToUTF8();
   const char* localUsername = strUsername;
@@ -4333,7 +4215,7 @@ bool wxSQLite3Database::UserLogin(const wxString& username, const wxString& pass
 
 bool wxSQLite3Database::UserAdd(const wxString& username, const wxString& password, bool isAdmin)
 {
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   wxCharBuffer strUsername = username.ToUTF8();
   const char* localUsername = strUsername;
@@ -4358,7 +4240,7 @@ bool wxSQLite3Database::UserAdd(const wxString& username, const wxString& passwo
 
 bool wxSQLite3Database::UserChange(const wxString& username, const wxString& password, bool isAdmin)
 {
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   wxCharBuffer strUsername = username.ToUTF8();
   const char* localUsername = strUsername;
@@ -4383,7 +4265,7 @@ bool wxSQLite3Database::UserChange(const wxString& username, const wxString& pas
 
 bool wxSQLite3Database::UserDelete(const wxString& username)
 {
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   wxCharBuffer strUsername = username.ToUTF8();
   const char* localUsername = strUsername;
@@ -4404,7 +4286,7 @@ bool wxSQLite3Database::UserDelete(const wxString& username)
 
 bool wxSQLite3Database::UserIsPrivileged(const wxString& username)
 {
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   bool isPrivileged = false;
   wxString sql = wxS("select isAdmin from main.sqlite_user where uname=?;");
@@ -4425,7 +4307,7 @@ bool wxSQLite3Database::UserIsPrivileged(const wxString& username)
 void wxSQLite3Database::GetUserList(wxArrayString& userList)
 {
   userList.Empty();
-#if WXSQLITE3_USER_AUTHENTICATION && SQLITE_VERSION_NUMBER >= 3008007
+#if SQLITE_USER_AUTHENTICATION
   CheckDatabase();
   wxSQLite3ResultSet resultSet = ExecuteQuery("select uname from main.sqlite_user order by uname;");
   while (resultSet.NextRow())
@@ -4440,45 +4322,27 @@ void wxSQLite3Database::GetUserList(wxArrayString& userList)
 int wxSQLite3Database::GetLimit(wxSQLite3LimitType id) const
 {
   int value = -1;
-#if SQLITE_VERSION_NUMBER >= 3005008
   CheckDatabase();
-#if SQLITE_VERSION_NUMBER >= 3008007
   if (id >= WXSQLITE_LIMIT_LENGTH && id <= WXSQLITE_LIMIT_WORKER_THREADS)
-#else
-  if (id >= WXSQLITE_LIMIT_LENGTH && id <= WXSQLITE_LIMIT_VARIABLE_NUMBER)
-#endif
   {
     value = sqlite3_limit(m_db->m_db, id, -1);
   }
-#else
-  wxUnusedVar(id);
-#endif
   return value;
 }
 
 int wxSQLite3Database::SetLimit(wxSQLite3LimitType id, int newValue)
 {
   int value = -1;
-#if SQLITE_VERSION_NUMBER >= 3005008
   CheckDatabase();
-#if SQLITE_VERSION_NUMBER >= 3008007
   if (id >= WXSQLITE_LIMIT_LENGTH && id <= WXSQLITE_LIMIT_WORKER_THREADS)
-#else
-  if (id >= WXSQLITE_LIMIT_LENGTH && id <= WXSQLITE_LIMIT_VARIABLE_NUMBER)
-#endif
   {
     value = sqlite3_limit(m_db->m_db, id, newValue);
   }
-#else
-  wxUnusedVar(id);
-  wxUnusedVar(newValue);
-#endif
   return value;
 }
 
 void wxSQLite3Database::ReleaseMemory()
 {
-#if SQLITE_VERSION_NUMBER >= 3007010
   CheckDatabase();
   int rc = sqlite3_db_release_memory(m_db->m_db);
   if (rc != SQLITE_OK)
@@ -4486,18 +4350,15 @@ void wxSQLite3Database::ReleaseMemory()
     const char* localError = sqlite3_errmsg(m_db->m_db);
     throw wxSQLite3Exception(rc, wxString::FromUTF8(localError));
   }
-#endif
 }
 
 int wxSQLite3Database::GetSystemErrorCode() const
 {
   int rc = 0;
-#if SQLITE_VERSION_NUMBER >= 3012000
   if (m_db != NULL)
   {
     rc = sqlite3_system_errno(m_db->m_db);
   }
-#endif
   return rc;
 }
 
@@ -4529,13 +4390,11 @@ wxString wxSQLite3Database::LimitTypeToString(wxSQLite3LimitType type)
 /* static */
 void wxSQLite3Database::InitializeSQLite()
 {
-#if SQLITE_VERSION_NUMBER >= 3006000
   int rc = sqlite3_initialize();
   if (rc != SQLITE_OK)
   {
     throw wxSQLite3Exception(rc, wxERRMSG_INITIALIZE);
   }
-#endif
 }
 
 /* static */
@@ -4555,24 +4414,18 @@ void wxSQLite3Database::InitializeSQLite(const wxSQLite3Logger& logger)
 /* static */
 void wxSQLite3Database::ShutdownSQLite()
 {
-#if SQLITE_VERSION_NUMBER >= 3006000
   int rc = sqlite3_shutdown();
   if (rc != SQLITE_OK)
   {
     throw wxSQLite3Exception(rc, wxERRMSG_SHUTDOWN);
   }
-#endif
 }
 
 /* static */
 bool wxSQLite3Database::SetTemporaryDirectory(const wxString& tempDirectory)
 {
   bool ok = false;
-#if SQLITE_VERSION_NUMBER >= 3007014
 #if defined(__WXMSW__)
-#if SQLITE_VERSION_NUMBER < 3024000
-  DWORD SQLITE_WIN32_TEMP_DIRECTORY_TYPE = 2;
-#endif
 #if wxUSE_UNICODE
   const wxChar* zValue = tempDirectory.wc_str();
 #else
@@ -4581,7 +4434,6 @@ bool wxSQLite3Database::SetTemporaryDirectory(const wxString& tempDirectory)
   int rc = sqlite3_win32_set_directory(SQLITE_WIN32_TEMP_DIRECTORY_TYPE, (void*) zValue);
   ok = (rc == SQLITE_OK);
 #endif
-#endif
   return ok;
 }
 
@@ -4589,7 +4441,6 @@ bool wxSQLite3Database::SetTemporaryDirectory(const wxString& tempDirectory)
 bool wxSQLite3Database::Randomness(int n, wxMemoryBuffer& random)
 {
   bool ok = false;
-#if SQLITE_VERSION_NUMBER >= 3005008
   if (n > 0)
   {
     void* buffer = random.GetWriteBuf(n);
@@ -4597,10 +4448,6 @@ bool wxSQLite3Database::Randomness(int n, wxMemoryBuffer& random)
     random.UngetWriteBuf(n);
     ok = true;
   }
-#else
-  wxUnusedVar(n);
-  wxUnusedVar(random);
-#endif
   return ok;
 }
 
@@ -4922,7 +4769,7 @@ void wxSQLite3FunctionContext::ExecWindowInverse(void* ctx, int argc, void** arg
 static int wxSQLite3FunctionContextExecAuthorizer(void* func, int type,
                                            const char* arg1, const char* arg2,
                                            const char* arg3, const char* arg4
-#if WXSQLITE3_USER_AUTHENTICATION
+#if SQLITE_USER_AUTHENTICATION
                                          , const char* arg5
 #endif
                                           )
@@ -4931,7 +4778,7 @@ static int wxSQLite3FunctionContextExecAuthorizer(void* func, int type,
   wxString locArg2 = wxString::FromUTF8(arg2);
   wxString locArg3 = wxString::FromUTF8(arg3);
   wxString locArg4 = wxString::FromUTF8(arg4);
-#if WXSQLITE3_USER_AUTHENTICATION
+#if SQLITE_USER_AUTHENTICATION
   wxString locArg5 = wxString::FromUTF8(arg5);
 #else
   wxString locArg5 = wxEmptyString;
@@ -5495,11 +5342,9 @@ static sqlite3_module chararrayModule =
   0,                           // xRollback
   0,                           // xFindMethod
   0,                           // xRename
-#if SQLITE_VERSION_NUMBER >= 3007007
   0,                           // xSavepoint
   0,                           // xRelease
   0                            // xRollbackTo
-#endif
 };
 
 #endif // WXSQLITE3_USE_NAMED_COLLECTIONS
@@ -5772,7 +5617,7 @@ wxSQLite3Cipher::wxSQLite3Cipher(const wxSQLite3Cipher&  cipher)
 {
 }
 
-  /// Destructor
+/// Destructor
 wxSQLite3Cipher::~wxSQLite3Cipher()
 {
 }
@@ -5870,43 +5715,42 @@ wxSQLite3Cipher::GetCipherType(const wxString& cipherName)
 bool
 wxSQLite3Cipher::SetCipher(wxSQLite3Database& db, wxSQLite3CipherType cipherType)
 {
+  const char* cipherName = GetCipherName(cipherType).utf8_str();
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int newCipherType = (dbHandle != NULL) ? wxsqlite3_config(dbHandle, "cipher", cipherType) : WXSQLITE_CIPHER_UNKNOWN;
-  return (newCipherType == (int) cipherType && newCipherType != WXSQLITE_CIPHER_UNKNOWN);
+  int newCipherType = (dbHandle != NULL) ? sqlite3mc_config(dbHandle, "cipher", sqlite3mc_cipher_index(cipherName)) : WXSQLITE_CIPHER_UNKNOWN;
+  return (newCipherType > 0 && newCipherType == (int) cipherType && newCipherType != WXSQLITE_CIPHER_UNKNOWN);
 }
 
 bool
 wxSQLite3Cipher::SetCipherDefault(wxSQLite3Database& db, wxSQLite3CipherType cipherType)
 {
+  const char* cipherName = GetCipherName(cipherType).utf8_str();
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int newCipherType = (dbHandle != NULL) ? wxsqlite3_config(dbHandle, "default:cipher", cipherType) : WXSQLITE_CIPHER_UNKNOWN;
-  return (newCipherType == (int) cipherType && newCipherType != WXSQLITE_CIPHER_UNKNOWN);
+  int newCipherType = (dbHandle != NULL) ? sqlite3mc_config(dbHandle, "default:cipher", sqlite3mc_cipher_index(cipherName)) : WXSQLITE_CIPHER_UNKNOWN;
+  return (newCipherType > 0 && newCipherType == (int) cipherType && newCipherType != WXSQLITE_CIPHER_UNKNOWN);
 }
 
 wxSQLite3CipherType
 wxSQLite3Cipher::GetCipher(wxSQLite3Database& db)
 {
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int cipherType = wxsqlite3_config(dbHandle, "cipher", -1);
-  if (cipherType < 1) cipherType = 0;
-  return (wxSQLite3CipherType) cipherType;
+  int cipherType = sqlite3mc_config(dbHandle, "cipher", -1);
+  return GetCipherType(sqlite3mc_cipher_name(cipherType));
 }
 
 wxSQLite3CipherType
 wxSQLite3Cipher::GetCipherDefault(wxSQLite3Database& db)
 {
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int cipherType = wxsqlite3_config(dbHandle, "default:cipher", -1);
-  if (cipherType < 1) cipherType = 0;
-  return (wxSQLite3CipherType) cipherType;
+  int cipherType = sqlite3mc_config(dbHandle, "default:cipher", -1);
+  return GetCipherType(sqlite3mc_cipher_name(cipherType));
 }
 
 wxSQLite3CipherType
 wxSQLite3Cipher::GetGlobalCipherDefault()
 {
-  int cipherType = wxsqlite3_config(0, "default:cipher", -1);
-  if (cipherType < 1) cipherType = 0;
-  return (wxSQLite3CipherType) cipherType;
+  int cipherType = sqlite3mc_config(0, "default:cipher", -1);
+  return GetCipherType(sqlite3mc_cipher_name(cipherType));
 }
 
 int
@@ -5917,7 +5761,7 @@ wxSQLite3Cipher::GetCipherParameterMin(const wxString& cipherName, const wxStrin
   wxString minParamName = wxString(wxS("min:")) + paramName;
   wxCharBuffer strParamName = minParamName.ToUTF8();
   const char* zParamName = strParamName;
-  return wxsqlite3_config_cipher(0, zCipherName, zParamName, -1);
+  return sqlite3mc_config_cipher(0, zCipherName, zParamName, -1);
 }
 
 int
@@ -5928,7 +5772,7 @@ wxSQLite3Cipher::GetCipherParameterMax(const wxString& cipherName, const wxStrin
   wxString maxParamName = wxString(wxS("max:")) + paramName;
   wxCharBuffer strParamName = maxParamName.ToUTF8();
   const char* zParamName = strParamName;
-  return wxsqlite3_config_cipher(0, zCipherName, zParamName, -1);
+  return sqlite3mc_config_cipher(0, zCipherName, zParamName, -1);
 }
 
 void
@@ -5968,8 +5812,8 @@ wxSQLite3CipherAes128::~wxSQLite3CipherAes128()
 bool
 wxSQLite3CipherAes128::InitializeFromGlobalDefault()
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_128_CBC
-  int legacy = wxsqlite3_config_cipher(0, "aes128cbc", "legacy", -1);
+#if HAVE_CIPHER_AES_128_CBC
+  int legacy = sqlite3mc_config_cipher(0, "aes128cbc", "legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -5982,9 +5826,9 @@ wxSQLite3CipherAes128::InitializeFromGlobalDefault()
 bool
 wxSQLite3CipherAes128::InitializeFromCurrent(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_128_CBC
+#if HAVE_CIPHER_AES_128_CBC
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "aes128cbc", "legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "aes128cbc", "legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -5997,9 +5841,9 @@ wxSQLite3CipherAes128::InitializeFromCurrent(wxSQLite3Database& db)
 bool
 wxSQLite3CipherAes128::InitializeFromCurrentDefault(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_128_CBC
+#if HAVE_CIPHER_AES_128_CBC
   sqlite3* dbHandle = (sqlite3*)GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "aes128cbc", "default:legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "aes128cbc", "default:legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -6018,16 +5862,16 @@ wxSQLite3CipherAes128::Apply(wxSQLite3Database& db) const
 bool
 wxSQLite3CipherAes128::Apply(void* dbHandle) const
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_128_CBC
+#if HAVE_CIPHER_AES_128_CBC
   bool applied = false;
   if (IsOk())
   {
     if (dbHandle != NULL)
     {
-      int newCipherType = wxsqlite3_config((sqlite3*) dbHandle, "cipher", GetCipherType());
-      int legacy = wxsqlite3_config_cipher((sqlite3*) dbHandle, "aes128cbc", "legacy", (m_legacy) ? 1 : 0);
-      int legacyPageSize = wxsqlite3_config_cipher((sqlite3*) dbHandle, "aes128cbc", "legacy_page_size", GetLegacyPageSize());
-      applied = (legacy >= 0) && (legacyPageSize >= 0);
+      int newCipherType = sqlite3mc_config((sqlite3*) dbHandle, "cipher", sqlite3mc_cipher_index("aes128cbc"));
+      int legacy = sqlite3mc_config_cipher((sqlite3*) dbHandle, "aes128cbc", "legacy", (m_legacy) ? 1 : 0);
+      int legacyPageSize = sqlite3mc_config_cipher((sqlite3*) dbHandle, "aes128cbc", "legacy_page_size", GetLegacyPageSize());
+      applied = (newCipherType > 0) && (legacy >= 0) && (legacyPageSize >= 0);
     }
   }
   return applied;
@@ -6055,10 +5899,10 @@ wxSQLite3CipherAes256::~wxSQLite3CipherAes256()
 bool
 wxSQLite3CipherAes256::InitializeFromGlobalDefault()
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_256_CBC
-  int legacy = wxsqlite3_config_cipher(0, "aes256cbc", "legacy", -1);
+#if HAVE_CIPHER_AES_256_CBC
+  int legacy = sqlite3mc_config_cipher(0, "aes256cbc", "legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(0, "aes256cbc", "kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(0, "aes256cbc", "kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6070,11 +5914,11 @@ wxSQLite3CipherAes256::InitializeFromGlobalDefault()
 bool
 wxSQLite3CipherAes256::InitializeFromCurrent(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_256_CBC
+#if HAVE_CIPHER_AES_256_CBC
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "aes256cbc", "legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "aes256cbc", "legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "aes256cbc", "kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "aes256cbc", "kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6086,11 +5930,11 @@ wxSQLite3CipherAes256::InitializeFromCurrent(wxSQLite3Database& db)
 bool
 wxSQLite3CipherAes256::InitializeFromCurrentDefault(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_256_CBC
+#if HAVE_CIPHER_AES_256_CBC
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "aes256cbc", "default:legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "aes256cbc", "default:legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "aes256cbc", "default:kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "aes256cbc", "default:kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6108,17 +5952,17 @@ wxSQLite3CipherAes256::Apply(wxSQLite3Database& db) const
 bool
 wxSQLite3CipherAes256::Apply(void* dbHandle) const
 {
-#if WXSQLITE3_HAVE_CIPHER_AES_256_CBC
+#if HAVE_CIPHER_AES_256_CBC
   bool applied = false;
   if (IsOk())
   {
     if (dbHandle != NULL)
     {
-      int newCipherType = wxsqlite3_config((sqlite3*) dbHandle, "cipher", GetCipherType());
-      int legacy = wxsqlite3_config_cipher((sqlite3*) dbHandle, "aes256cbc", "legacy", (m_legacy) ? 1 : 0);
-      int legacyPageSize = wxsqlite3_config_cipher((sqlite3*)dbHandle, "aes256cbc", "legacy_page_size", GetLegacyPageSize());
-      int kdfIter = wxsqlite3_config_cipher((sqlite3*) dbHandle, "aes256cbc", "kdf_iter", m_kdfIter);
-      applied = (legacy >= 0) && (legacyPageSize >= 0) && (kdfIter > 0);
+      int newCipherType = sqlite3mc_config((sqlite3*) dbHandle, "cipher", sqlite3mc_cipher_index("aes256cbc"));
+      int legacy = sqlite3mc_config_cipher((sqlite3*) dbHandle, "aes256cbc", "legacy", (m_legacy) ? 1 : 0);
+      int legacyPageSize = sqlite3mc_config_cipher((sqlite3*)dbHandle, "aes256cbc", "legacy_page_size", GetLegacyPageSize());
+      int kdfIter = sqlite3mc_config_cipher((sqlite3*) dbHandle, "aes256cbc", "kdf_iter", m_kdfIter);
+      applied = (newCipherType > 0) && (legacy >= 0) && (legacyPageSize >= 0) && (kdfIter > 0);
     }
   }
   return applied;
@@ -6145,10 +5989,10 @@ wxSQLite3CipherChaCha20::~wxSQLite3CipherChaCha20()
 bool
 wxSQLite3CipherChaCha20::InitializeFromGlobalDefault()
 {
-#if WXSQLITE3_HAVE_CIPHER_CHACHA20
-  int legacy = wxsqlite3_config_cipher(0, "chacha20", "legacy", -1);
+#if HAVE_CIPHER_CHACHA20
+  int legacy = sqlite3mc_config_cipher(0, "chacha20", "legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(0, "chacha20", "kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(0, "chacha20", "kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6160,11 +6004,11 @@ wxSQLite3CipherChaCha20::InitializeFromGlobalDefault()
 bool
 wxSQLite3CipherChaCha20::InitializeFromCurrent(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_CHACHA20
+#if HAVE_CIPHER_CHACHA20
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "chacha20", "legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "chacha20", "legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "chacha20", "kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "chacha20", "kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6176,11 +6020,11 @@ wxSQLite3CipherChaCha20::InitializeFromCurrent(wxSQLite3Database& db)
 bool
 wxSQLite3CipherChaCha20::InitializeFromCurrentDefault(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_CHACHA20
+#if HAVE_CIPHER_CHACHA20
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "chacha20", "default:legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "chacha20", "default:legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "chacha20", "default:kdf_iter", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "chacha20", "default:kdf_iter", -1);
   bool initialized = legacy >= 0 && m_kdfIter > 0;
   SetInitialized(initialized);
   return initialized;
@@ -6198,17 +6042,17 @@ wxSQLite3CipherChaCha20::Apply(wxSQLite3Database& db) const
 bool
 wxSQLite3CipherChaCha20::Apply(void* dbHandle) const
 {
-#if WXSQLITE3_HAVE_CIPHER_CHACHA20
+#if HAVE_CIPHER_CHACHA20
   bool applied = false;
   if (IsOk())
   {
     if (dbHandle != NULL)
     {
-      int newCipherType = wxsqlite3_config((sqlite3*) dbHandle, "cipher", GetCipherType());
-      int legacy = wxsqlite3_config_cipher((sqlite3*) dbHandle, "chacha20", "legacy", (m_legacy) ? 1 : 0);
-      int legacyPageSize = wxsqlite3_config_cipher((sqlite3*) dbHandle, "chacha20", "legacy_page_size", GetLegacyPageSize());
-      int kdfIter = wxsqlite3_config_cipher((sqlite3*) dbHandle, "chacha20", "kdf_iter", m_kdfIter);
-      applied = (legacy >= 0) && (legacyPageSize >= 0) && (kdfIter > 0);
+      int newCipherType = sqlite3mc_config((sqlite3*) dbHandle, "cipher", sqlite3mc_cipher_index("chacha20"));
+      int legacy = sqlite3mc_config_cipher((sqlite3*) dbHandle, "chacha20", "legacy", (m_legacy) ? 1 : 0);
+      int legacyPageSize = sqlite3mc_config_cipher((sqlite3*) dbHandle, "chacha20", "legacy_page_size", GetLegacyPageSize());
+      int kdfIter = sqlite3mc_config_cipher((sqlite3*) dbHandle, "chacha20", "kdf_iter", m_kdfIter);
+      applied = (newCipherType > 0) && (legacy >= 0) && (legacyPageSize >= 0) && (kdfIter > 0);
     }
   }
   return applied;
@@ -6241,19 +6085,19 @@ wxSQLite3CipherSQLCipher::~wxSQLite3CipherSQLCipher()
 bool
 wxSQLite3CipherSQLCipher::InitializeFromGlobalDefault()
 {
-#if WXSQLITE3_HAVE_CIPHER_SQLCIPHER
-  int legacy = wxsqlite3_config_cipher(0, "sqlcipher", "legacy", -1);
+#if HAVE_CIPHER_SQLCIPHER
+  int legacy = sqlite3mc_config_cipher(0, "sqlcipher", "legacy", -1);
   m_legacy = legacy != 0;
   m_legacyVersion = legacy;
-  m_kdfIter = wxsqlite3_config_cipher(0, "sqlcipher", "kdf_iter", -1);
-  m_fastKdfIter = wxsqlite3_config_cipher(0, "sqlcipher", "fast_kdf_iter", -1);
-  int hmacUse = wxsqlite3_config_cipher(0, "sqlcipher", "hmac_use", -1);
+  m_kdfIter = sqlite3mc_config_cipher(0, "sqlcipher", "kdf_iter", -1);
+  m_fastKdfIter = sqlite3mc_config_cipher(0, "sqlcipher", "fast_kdf_iter", -1);
+  int hmacUse = sqlite3mc_config_cipher(0, "sqlcipher", "hmac_use", -1);
   m_hmacUse = hmacUse != 0;
-  m_hmacPgNo = wxsqlite3_config_cipher(0, "sqlcipher", "hmac_pgno", -1);
-  m_hmacSaltMask = wxsqlite3_config_cipher(0, "sqlcipher", "hmac_salt_mask", -1);
-  int kdfAlgorithm = wxsqlite3_config_cipher(0, "sqlcipher", "kdf_algorithm", -1);
+  m_hmacPgNo = sqlite3mc_config_cipher(0, "sqlcipher", "hmac_pgno", -1);
+  m_hmacSaltMask = sqlite3mc_config_cipher(0, "sqlcipher", "hmac_salt_mask", -1);
+  int kdfAlgorithm = sqlite3mc_config_cipher(0, "sqlcipher", "kdf_algorithm", -1);
   if (kdfAlgorithm >= 0) m_kdfAlgorithm = (Algorithm) kdfAlgorithm;
-  int hmacAlgorithm = wxsqlite3_config_cipher(0, "sqlcipher", "hmac_algorithm", -1);
+  int hmacAlgorithm = sqlite3mc_config_cipher(0, "sqlcipher", "hmac_algorithm", -1);
   if (hmacAlgorithm >= 0) m_hmacAlgorithm = (Algorithm) hmacAlgorithm;
   bool initialized = legacy >= 0 && m_kdfIter > 0 && m_fastKdfIter > 0 &&
                      hmacUse >= 0 && m_hmacPgNo >= 0 && m_hmacSaltMask >= 0 &&
@@ -6268,19 +6112,19 @@ wxSQLite3CipherSQLCipher::InitializeFromGlobalDefault()
 bool
 wxSQLite3CipherSQLCipher::InitializeFromCurrent(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_SQLCIPHER
+#if HAVE_CIPHER_SQLCIPHER
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "kdf_iter", -1);
-  m_fastKdfIter = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "fast_kdf_iter", -1);
-  int hmacUse = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "hmac_use", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "kdf_iter", -1);
+  m_fastKdfIter = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "fast_kdf_iter", -1);
+  int hmacUse = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "hmac_use", -1);
   m_hmacUse = hmacUse != 0;
-  m_hmacPgNo = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "hmac_pgno", -1);
-  m_hmacSaltMask = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "hmac_salt_mask", -1);
-  int kdfAlgorithm = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "kdf_algorithm", -1);
+  m_hmacPgNo = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "hmac_pgno", -1);
+  m_hmacSaltMask = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "hmac_salt_mask", -1);
+  int kdfAlgorithm = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "kdf_algorithm", -1);
   if (kdfAlgorithm >= 0) m_kdfAlgorithm = (Algorithm)kdfAlgorithm;
-  int hmacAlgorithm = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "hmac_algorithm", -1);
+  int hmacAlgorithm = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "hmac_algorithm", -1);
   if (hmacAlgorithm >= 0) m_hmacAlgorithm = (Algorithm)hmacAlgorithm;
   bool initialized = legacy >= 0 && m_kdfIter > 0 && m_fastKdfIter > 0 &&
                      hmacUse >= 0 && m_hmacPgNo >= 0 && m_hmacSaltMask >= 0 &&
@@ -6295,19 +6139,19 @@ wxSQLite3CipherSQLCipher::InitializeFromCurrent(wxSQLite3Database& db)
 bool
 wxSQLite3CipherSQLCipher::InitializeFromCurrentDefault(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_SQLCIPHER
+#if HAVE_CIPHER_SQLCIPHER
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:legacy", -1);
   m_legacy = legacy != 0;
-  m_kdfIter = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:kdf_iter", -1);
-  m_fastKdfIter = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:fast_kdf_iter", -1);
-  int hmacUse = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:hmac_use", -1);
+  m_kdfIter = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:kdf_iter", -1);
+  m_fastKdfIter = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:fast_kdf_iter", -1);
+  int hmacUse = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:hmac_use", -1);
   m_hmacUse = hmacUse != 0;
-  m_hmacPgNo = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:hmac_pgno", -1);
-  m_hmacSaltMask = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:hmac_salt_mask", -1);
-  int kdfAlgorithm = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:kdf_algorithm", -1);
+  m_hmacPgNo = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:hmac_pgno", -1);
+  m_hmacSaltMask = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:hmac_salt_mask", -1);
+  int kdfAlgorithm = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:kdf_algorithm", -1);
   if (kdfAlgorithm >= 0) m_kdfAlgorithm = (Algorithm)kdfAlgorithm;
-  int hmacAlgorithm = wxsqlite3_config_cipher(dbHandle, "sqlcipher", "default:hmac_algorithm", -1);
+  int hmacAlgorithm = sqlite3mc_config_cipher(dbHandle, "sqlcipher", "default:hmac_algorithm", -1);
   if (hmacAlgorithm >= 0) m_hmacAlgorithm = (Algorithm)hmacAlgorithm;
   bool initialized = legacy >= 0 && m_kdfIter > 0 && m_fastKdfIter > 0 &&
                      hmacUse >= 0 && m_hmacPgNo >= 0 && m_hmacSaltMask >= 0 &&
@@ -6328,23 +6172,23 @@ wxSQLite3CipherSQLCipher::Apply(wxSQLite3Database& db) const
 bool
 wxSQLite3CipherSQLCipher::Apply(void* dbHandle) const
 {
-#if WXSQLITE3_HAVE_CIPHER_SQLCIPHER
+#if HAVE_CIPHER_SQLCIPHER
   bool applied = false;
   if (IsOk())
   {
     if (dbHandle != NULL)
     {
-      int newCipherType = wxsqlite3_config((sqlite3*) dbHandle, "cipher", GetCipherType());
-      int legacy = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "legacy", (m_legacy) ? 1 : 0);
-      int legacyPageSize = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "legacy_page_size", GetLegacyPageSize());
-      int kdfIter = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "kdf_iter", m_kdfIter);
-      int fastKdfIter = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "fast_kdf_iter", m_fastKdfIter);
-      int hmacUse = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_use", (m_hmacUse) ? 1 : 0);
-      int hmacPgNo = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_pgno", m_hmacPgNo);
-      int hmacSaltMask = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_salt_mask", m_hmacSaltMask);
-      int kdfAlgorithm = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "kdf_algorithm", (int) m_kdfAlgorithm);
-      int hmacAlgorithm = wxsqlite3_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_algorithm", (int) m_hmacAlgorithm);
-      applied = (legacy >= 0) && (legacyPageSize >= 0) &&
+      int newCipherType = sqlite3mc_config((sqlite3*) dbHandle, "cipher", sqlite3mc_cipher_index("sqlcipher"));
+      int legacy = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "legacy", (m_legacy) ? 1 : 0);
+      int legacyPageSize = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "legacy_page_size", GetLegacyPageSize());
+      int kdfIter = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "kdf_iter", m_kdfIter);
+      int fastKdfIter = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "fast_kdf_iter", m_fastKdfIter);
+      int hmacUse = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_use", (m_hmacUse) ? 1 : 0);
+      int hmacPgNo = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_pgno", m_hmacPgNo);
+      int hmacSaltMask = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_salt_mask", m_hmacSaltMask);
+      int kdfAlgorithm = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "kdf_algorithm", (int) m_kdfAlgorithm);
+      int hmacAlgorithm = sqlite3mc_config_cipher((sqlite3*) dbHandle, "sqlcipher", "hmac_algorithm", (int) m_hmacAlgorithm);
+      applied = (newCipherType > 0) && (legacy >= 0) && (legacyPageSize >= 0) &&
                 (kdfIter > 0) && (fastKdfIter > 0) &&
                 (hmacUse >= 0) && (hmacPgNo >= 0) && (hmacSaltMask >= 0) &&
                 (kdfAlgorithm >= 0) && (hmacAlgorithm >= 0);
@@ -6359,7 +6203,7 @@ wxSQLite3CipherSQLCipher::Apply(void* dbHandle) const
 void
 wxSQLite3CipherSQLCipher::InitializeVersionDefault(int version)
 {
-#if WXSQLITE3_HAVE_CIPHER_SQLCIPHER
+#if HAVE_CIPHER_SQLCIPHER
   switch (version)
   {
     case 1:
@@ -6435,8 +6279,8 @@ wxSQLite3CipherRC4::~wxSQLite3CipherRC4()
 bool
 wxSQLite3CipherRC4::InitializeFromGlobalDefault()
 {
-#if WXSQLITE3_HAVE_CIPHER_RC4
-  int legacy = wxsqlite3_config_cipher(0, "rc4", "legacy", -1);
+#if HAVE_CIPHER_RC4
+  int legacy = sqlite3mc_config_cipher(0, "rc4", "legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -6449,9 +6293,9 @@ wxSQLite3CipherRC4::InitializeFromGlobalDefault()
 bool
 wxSQLite3CipherRC4::InitializeFromCurrent(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_RC4
+#if HAVE_CIPHER_RC4
   sqlite3* dbHandle = (sqlite3*) GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "rc4", "legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "rc4", "legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -6464,9 +6308,9 @@ wxSQLite3CipherRC4::InitializeFromCurrent(wxSQLite3Database& db)
 bool
 wxSQLite3CipherRC4::InitializeFromCurrentDefault(wxSQLite3Database& db)
 {
-#if WXSQLITE3_HAVE_CIPHER_RC4
+#if HAVE_CIPHER_RC4
   sqlite3* dbHandle = (sqlite3*)GetDatabaseHandle(db);
-  int legacy = wxsqlite3_config_cipher(dbHandle, "rc4", "default:legacy", -1);
+  int legacy = sqlite3mc_config_cipher(dbHandle, "rc4", "default:legacy", -1);
   m_legacy = legacy != 0;
   bool initialized = legacy >= 0;
   SetInitialized(initialized);
@@ -6485,16 +6329,16 @@ wxSQLite3CipherRC4::Apply(wxSQLite3Database& db) const
 bool
 wxSQLite3CipherRC4::Apply(void* dbHandle) const
 {
-#if WXSQLITE3_HAVE_CIPHER_RC4
+#if HAVE_CIPHER_RC4
   bool applied = false;
   if (IsOk())
   {
     if (dbHandle != NULL)
     {
-      int newCipherType = wxsqlite3_config((sqlite3*) dbHandle, "cipher", GetCipherType());
-      int legacy = wxsqlite3_config_cipher((sqlite3*) dbHandle, "rc4", "legacy", (m_legacy) ? 1 : 0);
-      int legacyPageSize = wxsqlite3_config_cipher((sqlite3*) dbHandle, "rc4", "legacy_page_size", GetLegacyPageSize());
-      applied = (legacy >= 0) && (legacyPageSize >= 0);
+      int newCipherType = sqlite3mc_config((sqlite3*) dbHandle, "cipher", sqlite3mc_cipher_index("rc4"));
+      int legacy = sqlite3mc_config_cipher((sqlite3*) dbHandle, "rc4", "legacy", (m_legacy) ? 1 : 0);
+      int legacyPageSize = sqlite3mc_config_cipher((sqlite3*) dbHandle, "rc4", "legacy_page_size", GetLegacyPageSize());
+      applied = (newCipherType > 0) && (legacy >= 0) && (legacyPageSize >= 0);
     }
   }
   return applied;

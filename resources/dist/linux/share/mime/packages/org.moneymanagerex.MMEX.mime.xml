@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+    <mime-type type="application/x-mmex">
+        <sub-class-of type="application/x-sqlite3"/>
+        <comment>MMEX database</comment>
+        <comment xml:lang="hu">MMEX-adatbázis</comment>
+        <glob pattern="*.mmex"/>
+        <icon name="org.moneymanagerex.MMEX"/>
+        <generic-icon name="org.moneymanagerex.MMEX"/>
+    </mime-type>
+    <mime-type type="application/x-emb">
+        <sub-class-of type="application/x-sqlite3"/>
+        <comment>MMEX database</comment>
+        <comment xml:lang="hu">MMEX-adatbázis</comment>
+        <glob pattern="*.emb"/>
+        <icon name="org.moneymanagerex.MMEX"/>
+        <generic-icon name="org.moneymanagerex.MMEX"/>
+    </mime-type>
+    <mime-type type="application/x-mmdbg">
+        <sub-class-of type="application/x-sqlite3"/>
+        <comment>MMEX database</comment>
+        <comment xml:lang="hu">MMEX-adatbázis</comment>
+        <glob pattern="*.mmdbg"/>
+        <icon name="org.moneymanagerex.MMEX"/>
+        <generic-icon name="org.moneymanagerex.MMEX"/>
+    </mime-type>
+    <mime-type type="application/x-mmb">
+        <sub-class-of type="application/x-sqlite3"/>
+        <comment>MMEX database</comment>
+        <comment xml:lang="hu">MMEX-adatbázis</comment>
+        <glob pattern="*.mmb"/>
+        <icon name="org.moneymanagerex.MMEX"/>
+        <generic-icon name="org.moneymanagerex.MMEX"/>
+    </mime-type>
+</mime-info>

@@ -4,6 +4,7 @@
  Copyright (C) 2013 - 2022 Nikolay Akimov
  Copyright (C) 2014 James Higley
  Copyright (C) 2014 Guan Lisheng (guanlisheng@gmail.com)
+ Copyright (C) 2022 Mark Whalley (mark@ipx.co.uk)
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -127,6 +128,9 @@ void mmGUIFrame::DoUpdateReportNavigation(wxTreeItemId& parent_item)
 
         wxTreeItemId cashflowWithTermAccounts = m_nav_tree_ctrl->AppendItem(cashFlow, _("Monthly"), img::PIECHART_PNG, img::PIECHART_PNG);
         m_nav_tree_ctrl->SetItemData(cashflowWithTermAccounts, new mmTreeItemData("Cash Flow - Monthly", new mmReportCashFlowMonthly()));
+
+        wxTreeItemId cashflowWithTransactions = m_nav_tree_ctrl->AppendItem(cashFlow, _("Transactions"), img::PIECHART_PNG, img::PIECHART_PNG);
+        m_nav_tree_ctrl->SetItemData(cashflowWithTransactions, new mmTreeItemData("Cash Flow - Transactions", new mmReportCashFlowTransactions()));
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -203,15 +207,15 @@ void mmGUIFrame::DoUpdateReportNavigation(wxTreeItemId& parent_item)
     size_t i = Model_Budgetyear::instance().all().size();
     if (i > 0)
     {
-        if (hidden_reports.Index("Budget Performance") == wxNOT_FOUND)
+        if (hidden_reports.Index("Budgets") == wxNOT_FOUND)
         {
-            wxTreeItemId budgetPerformance = m_nav_tree_ctrl->AppendItem(parent_item, _("Budget Performance"), img::PIECHART_PNG, img::PIECHART_PNG);
-            m_nav_tree_ctrl->SetItemData(budgetPerformance, new mmTreeItemData("Budget Performance", new mmReportBudgetingPerformance()));
-        }
+            wxTreeItemId budgetReports = m_nav_tree_ctrl->AppendItem(parent_item, _("Budgets"), img::PIECHART_PNG, img::PIECHART_PNG);
+            m_nav_tree_ctrl->SetItemData(budgetReports, new mmTreeItemData(mmTreeItemData::MENU_REPORT, "Budgets"));
 
-        if (hidden_reports.Index("Budget Category Summary") == wxNOT_FOUND)
-        {
-            wxTreeItemId budgetSetupPerformance = m_nav_tree_ctrl->AppendItem(parent_item, _("Budget Category Summary"), img::PIECHART_PNG, img::PIECHART_PNG);
+            wxTreeItemId budgetPerformance = m_nav_tree_ctrl->AppendItem(budgetReports, _("Budget Performance"), img::PIECHART_PNG, img::PIECHART_PNG);
+            m_nav_tree_ctrl->SetItemData(budgetPerformance, new mmTreeItemData("Budget Performance", new mmReportBudgetingPerformance()));
+
+            wxTreeItemId budgetSetupPerformance = m_nav_tree_ctrl->AppendItem(budgetReports, _("Budget Category Summary"), img::PIECHART_PNG, img::PIECHART_PNG);
             m_nav_tree_ctrl->SetItemData(budgetSetupPerformance, new mmTreeItemData("Budget Category Summary", new mmReportBudgetCategorySummary()));
         }
     }
@@ -236,7 +240,7 @@ void mmGUIFrame::DoUpdateReportNavigation(wxTreeItemId& parent_item)
 void mmGUIFrame::DoUpdateGRMNavigation(wxTreeItemId& parent_item)
 {
     /*GRM Reports*/
-    auto records = Model_Report::instance().all();
+    auto records = Model_Report::instance().find(Model_Report::ACTIVE(1, EQUAL));
     //Sort by group name and report name
     std::sort(records.begin(), records.end(), SorterByREPORTNAME());
     std::stable_sort(records.begin(), records.end(), SorterByGROUPNAME());
@@ -249,6 +253,7 @@ void mmGUIFrame::DoUpdateGRMNavigation(wxTreeItemId& parent_item)
         if (group_name != record.GROUPNAME && !no_group)
         {
             group = m_nav_tree_ctrl->AppendItem(parent_item, wxGetTranslation(record.GROUPNAME), img::CUSTOMSQL_GRP_PNG, img::CUSTOMSQL_GRP_PNG);
+            m_nav_tree_ctrl->SetItemBold(group, true);
             m_nav_tree_ctrl->SetItemData(group, new mmTreeItemData(new mmGeneralGroupReport(record.GROUPNAME), record.GROUPNAME));
             group_name = record.GROUPNAME;
         }

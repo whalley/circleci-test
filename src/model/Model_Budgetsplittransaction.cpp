@@ -1,5 +1,6 @@
 /*******************************************************
  Copyright (C) 2013,2014 James Higley
+ Copyright (C) 2022 Mark Whalley (mark@ipx.co.uk)
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -17,6 +18,8 @@
  ********************************************************/
 
 #include "Model_Budgetsplittransaction.h"
+#include "Model_Attachment.h"
+#include "Model_Taglink.h"
 
 Model_Budgetsplittransaction::Model_Budgetsplittransaction()
 : Model<DB_Table_BUDGETSPLITTRANSACTIONS_V1>()
@@ -55,6 +58,13 @@ double Model_Budgetsplittransaction::get_total(const Data_Set& rows)
     return total;
 }
 
+bool Model_Budgetsplittransaction::remove(int id)
+{
+    // Delete all tags for the split before removing it
+    Model_Taglink::instance().DeleteAllTags(Model_Attachment::reftype_desc(Model_Attachment::BILLSDEPOSITSPLIT), id);
+    return this->remove(id, db_);
+}
+
 std::map<int, Model_Budgetsplittransaction::Data_Set> Model_Budgetsplittransaction::get_all()
 {
     std::map<int, Model_Budgetsplittransaction::Data_Set> data;
@@ -66,7 +76,7 @@ std::map<int, Model_Budgetsplittransaction::Data_Set> Model_Budgetsplittransacti
     return data;
 }
 
-int Model_Budgetsplittransaction::update(const Data_Set& rows, int transactionID)
+int Model_Budgetsplittransaction::update(Data_Set& rows, int transactionID)
 {
 
     Data_Set split = instance().find(TRANSID(transactionID));
@@ -84,10 +94,14 @@ int Model_Budgetsplittransaction::update(const Data_Set& rows, int transactionID
             split_item->TRANSID = transactionID;
             split_item->SPLITTRANSAMOUNT = item.SPLITTRANSAMOUNT;
             split_item->CATEGID = item.CATEGID;
-            split_item->SUBCATEGID = item.SUBCATEGID;
+            split_item->NOTES = item.NOTES;
             split_items.push_back(*split_item);
         }
         instance().save(split_items);
+
+        // Send back the new SPLITTRANSID which is needed to update taglinks
+        for (int i = 0; i < rows.size(); i++)
+            rows.at(i).SPLITTRANSID = split_items.at(i).SPLITTRANSID;
     }
     return rows.size();
 }

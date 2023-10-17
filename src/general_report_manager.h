@@ -80,12 +80,14 @@ private:
     void OnSqlTest(wxCommandEvent& event);
     void OnNewTemplate(wxCommandEvent& event);
     void OnItemRightClick(wxTreeEvent& event);
+    void OnRightClick(wxMouseEvent& event);
     void OnSelChanged(wxTreeEvent& event);
     //void OnLabelChanged(wxTreeEvent& event);
     void viewControls(bool enable);
     void renameReport(int id);
     bool DeleteReport(int id);
     bool changeReportGroup(int id, bool ungroup);
+    void changeReportState(int id);
     bool renameReportGroup(const wxString& GroupName);
     void OnMenuSelected(wxCommandEvent& event);
     void newReport(int sample = ID_NEW_EMPTY);
@@ -143,6 +145,7 @@ private:
         ID_TEMPLATE,
         ID_DESCRIPTION,
         ID_REPORT_LIST,
+        ID_ACTIVE
     };
 
 };

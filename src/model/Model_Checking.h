@@ -22,16 +22,19 @@
 #include "Model.h"
 #include "db/DB_Table_Checkingaccount_V1.h"
 #include "Model_Splittransaction.h"
+#include "Model_CustomField.h"
+#include "Model_Taglink.h"
 
 class Model_Checking : public Model<DB_Table_CHECKINGACCOUNT_V1>
 {
 public:
     using Model<DB_Table_CHECKINGACCOUNT_V1>::remove;
+    using Model<DB_Table_CHECKINGACCOUNT_V1>::save;
     typedef Model_Splittransaction::Data_Set Split_Data_Set;
 
 public:
     enum TYPE { WITHDRAWAL = 0, DEPOSIT, TRANSFER };
-    enum STATUS_ENUM { NONE = 0, RECONCILED, VOID_, FOLLOWUP, DUPLICATE_ };
+    enum STATUS_ENUM { NONE = 0, RECONCILED, VOID_, FOLLOWUP, DUPLICATE_};
 
     static const std::vector<std::pair<TYPE, wxString> > TYPE_CHOICES;
     static const std::vector<std::pair<STATUS_ENUM, wxString> > STATUS_ENUM_CHOICES;
@@ -42,22 +45,25 @@ public:
         Full_Data();
         explicit Full_Data(const Data& r);
         Full_Data(const Data& r
-            , const std::map<int /*trans id*/
-                , Model_Splittransaction::Data_Set /*split trans*/ > & splits);
+            , const std::map<int /*trans id*/, Model_Splittransaction::Data_Set /*split trans*/ > & splits
+            , const std::map<int /*trans id*/, Model_Taglink::Data_Set /*split trans*/ >& tags);
 
         ~Full_Data();
         wxString ACCOUNTNAME, TOACCOUNTNAME;
         wxString PAYEENAME;
         wxString CATEGNAME;
-
+        wxString TAGNAMES;
+        wxString displayID;
         double AMOUNT;
         double BALANCE;
         wxArrayString ATTACHMENT_DESCRIPTION;
         Model_Splittransaction::Data_Set m_splits;
+        Model_Taglink::Data_Set m_tags;
         wxString real_payee_name(int account_id) const;
         const wxString get_currency_code(int account_id) const;
         const wxString get_account_name(int account_id) const;
         bool has_split() const;
+        bool has_tags() const;
         bool has_attachment() const;
         bool is_foreign() const;
         bool is_foreign_transfer() const;
@@ -67,15 +73,20 @@ public:
 
         // Reserved string variables for custom data
         wxString UDFC01;
-        int UDFC01_Type;
+        double UDFC01_val;
+        Model_CustomField::FIELDTYPE UDFC01_Type;
         wxString UDFC02;
-        int UDFC02_Type;
+        double UDFC02_val;
+        Model_CustomField::FIELDTYPE UDFC02_Type;
         wxString UDFC03;
-        int UDFC03_Type;
+        double UDFC03_val;
+        Model_CustomField::FIELDTYPE UDFC03_Type;
         wxString UDFC04;
-        int UDFC04_Type;
+        double UDFC04_val;
+        Model_CustomField::FIELDTYPE UDFC04_Type;
         wxString UDFC05;
-        int UDFC05_Type;
+        double UDFC05_val;
+        Model_CustomField::FIELDTYPE UDFC05_Type;
     };
     typedef std::vector<Full_Data> Full_Data_Set;
 
@@ -113,6 +124,15 @@ public:
                 : x.TRANSACTIONNUMBER < y.TRANSACTIONNUMBER;
         }
     };
+    struct SorterByTAGNAMES
+    {
+        template<class DATA>
+        bool operator()(const DATA& x, const DATA& y)
+        {
+            return x.TAGNAMES < y.TAGNAMES;
+        }
+    };
+
 public:
     Model_Checking();
     ~Model_Checking();
@@ -141,13 +161,17 @@ public:
 
 public:
     bool remove(int id);
-
+    int save(Data* r);
+    int save(std::vector<Data>& rows);
+    int save(std::vector<Data*>& rows);
+    void updateTimestamp(int id);
 public:
     static const Model_Splittransaction::Data_Set splittransaction(const Data* r);
     static const Model_Splittransaction::Data_Set splittransaction(const Data& r);
 
 public:
     static DB_Table_CHECKINGACCOUNT_V1::TRANSDATE TRANSDATE(const wxDate& date, OP op = EQUAL);
+    static DB_Table_CHECKINGACCOUNT_V1::DELETEDTIME DELETEDTIME(const wxString& date, OP op = EQUAL);
     static DB_Table_CHECKINGACCOUNT_V1::TRANSDATE TRANSDATE(const wxString& date_iso_str, OP op = EQUAL);
     static DB_Table_CHECKINGACCOUNT_V1::STATUS STATUS(STATUS_ENUM status, OP op = EQUAL);
     static DB_Table_CHECKINGACCOUNT_V1::TRANSCODE TRANSCODE(TYPE type, OP op = EQUAL);
@@ -187,6 +211,7 @@ public:
 };
 
 inline bool Model_Checking::Full_Data::has_split() const { return !this->m_splits.empty(); }
+inline bool Model_Checking::Full_Data::has_tags() const { return !this->m_tags.empty(); }
 inline bool Model_Checking::Full_Data::has_attachment() const { return !ATTACHMENT_DESCRIPTION.empty(); }
 
 #endif // 

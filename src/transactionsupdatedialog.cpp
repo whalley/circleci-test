@@ -34,12 +34,12 @@
 wxIMPLEMENT_DYNAMIC_CLASS(transactionsUpdateDialog, wxDialog);
 
 wxBEGIN_EVENT_TABLE(transactionsUpdateDialog, wxDialog)
-    EVT_BUTTON(wxID_OK, transactionsUpdateDialog::OnOk)
-    EVT_BUTTON(ID_BTN_CUSTOMFIELDS, transactionsUpdateDialog::OnMoreFields)
-    EVT_CHECKBOX(wxID_ANY, transactionsUpdateDialog::OnCheckboxClick)
-    EVT_CHILD_FOCUS(transactionsUpdateDialog::onFocusChange)
-    EVT_CHAR_HOOK(transactionsUpdateDialog::OnComboKey)
-    EVT_CHOICE(ID_TRANS_TYPE, transactionsUpdateDialog::OnTransTypeChanged)
+EVT_BUTTON(wxID_OK, transactionsUpdateDialog::OnOk)
+EVT_BUTTON(ID_BTN_CUSTOMFIELDS, transactionsUpdateDialog::OnMoreFields)
+EVT_CHECKBOX(wxID_ANY, transactionsUpdateDialog::OnCheckboxClick)
+EVT_CHILD_FOCUS(transactionsUpdateDialog::onFocusChange)
+EVT_CHAR_HOOK(transactionsUpdateDialog::OnComboKey)
+EVT_CHOICE(ID_TRANS_TYPE, transactionsUpdateDialog::OnTransTypeChanged)
 wxEND_EVENT_TABLE()
 
 transactionsUpdateDialog::transactionsUpdateDialog()
@@ -50,27 +50,13 @@ transactionsUpdateDialog::~transactionsUpdateDialog()
 {
 }
 
+// Used to determine if we need to refresh the tag text ctrl after
+// accelerator hints are shown which only occurs once.
+static bool altRefreshDone;
+
 transactionsUpdateDialog::transactionsUpdateDialog(wxWindow* parent
     , std::vector<int>& transaction_id)
-    : m_payee_checkbox(nullptr)
-    , cbPayee_(nullptr)
-    , m_date_checkbox(nullptr)
-    , m_dpc(nullptr)
-    , m_status_checkbox(nullptr)
-    , m_status_choice(nullptr)
-    , m_categ_checkbox(nullptr)
-    , cbCategory_(nullptr)
-    , m_type_checkbox(nullptr)
-    , m_type_choice(nullptr)
-    , m_amount_checkbox(nullptr)
-    , m_amount_ctrl(nullptr)
-    , m_notes_checkbox(nullptr)
-    , m_append_checkbox(nullptr)
-    , m_notes_ctrl(nullptr)
-    , m_transaction_id(transaction_id)
-    , m_hasTransfers(false)
-    , m_hasNonTransfers(false)
-    , m_hasSplits(false)
+    : m_transaction_id(transaction_id)
 {
     m_currency = Model_Currency::GetBaseCurrency(); // base currency if we need it
 
@@ -79,18 +65,18 @@ transactionsUpdateDialog::transactionsUpdateDialog(wxWindow* parent
     {
         Model_Checking::Data *trx = Model_Checking::instance().get(id);
         const bool isTransfer = Model_Checking::is_transfer(trx);
-        
+
         if (!m_hasSplits)
         {
             Model_Splittransaction::Data_Set split = Model_Splittransaction::instance().find(Model_Splittransaction::TRANSID(id));
             if (!split.empty())
                 m_hasSplits = true;
         }
-  
+
         if (!m_hasTransfers && isTransfer)
             m_hasTransfers = true;
 
-        if (!m_hasNonTransfers && !isTransfer)    
+        if (!m_hasNonTransfers && !isTransfer)
             m_hasNonTransfers = true;
     }
 
@@ -106,6 +92,7 @@ bool transactionsUpdateDialog::Create(wxWindow* parent
     , const wxPoint& pos
     , const wxSize& size, long style)
 {
+    altRefreshDone = false; // reset the ALT refresh indicator on new dialog creation
     SetExtraStyle(GetExtraStyle() | wxWS_EX_BLOCK_EVENTS);
     wxDialog::Create(parent, id, wxGetTranslation(caption), pos, size, style);
 
@@ -198,7 +185,7 @@ void transactionsUpdateDialog::CreateControls()
         , wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
     m_payee_checkbox->Enable(!m_hasTransfers);
 
-    cbPayee_ = new mmComboBoxPayee(this, mmID_PAYEE);
+    cbPayee_ = new mmComboBoxPayee(this, mmID_PAYEE, wxDefaultSize, -1, true);
     cbPayee_->Enable(false);
     cbPayee_->SetMinSize(wxSize(200, -1));
 
@@ -222,11 +209,24 @@ void transactionsUpdateDialog::CreateControls()
         , wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
     m_categ_checkbox->Enable(!m_hasSplits);
 
-    cbCategory_ = new mmComboBoxCategory(this, mmID_CATEGORY);
+    cbCategory_ = new mmComboBoxCategory(this, mmID_CATEGORY, wxDefaultSize, -1, true);
     cbCategory_->Enable(false);
 
     grid_sizer->Add(m_categ_checkbox, g_flagsH);
     grid_sizer->Add(cbCategory_, g_flagsExpand);
+
+    // Tags ------------------------------------------------------
+    tag_checkbox_ = new wxCheckBox(this, wxID_ANY, _("Tags"));
+    tag_append_checkbox_ = new wxCheckBox(this, wxID_ANY, _("Append"));
+    tag_append_checkbox_->SetValue(true);
+    tag_append_checkbox_->Enable(false);
+
+    tagTextCtrl_ = new mmTagTextCtrl(this);
+    tagTextCtrl_->Enable(false);
+    grid_sizer->Add(tag_checkbox_, g_flagsH);
+    grid_sizer->Add(tag_append_checkbox_, g_flagsH);
+    grid_sizer->AddSpacer(0);
+    grid_sizer->Add(tagTextCtrl_, g_flagsExpand);
 
     // Colours --------------------------------------------
     m_color_checkbox = new wxCheckBox(this, wxID_VIEW_DETAILS, _("Color")
@@ -269,7 +269,7 @@ void transactionsUpdateDialog::CreateControls()
     button_cancel->SetFocus();
 
     wxBitmapButton* button_hide = new wxBitmapButton(button_panel
-        , ID_BTN_CUSTOMFIELDS, mmBitmap(png::RIGHTARROW, mmBitmapButtonSize));
+        , ID_BTN_CUSTOMFIELDS, mmBitmapBundle(png::RIGHTARROW, mmBitmapButtonSize));
     mmToolTip(button_hide, _("Show/Hide custom fields window"));
     if (m_custom_fields->GetCustomFieldsCount() == 0) {
         button_hide->Hide();
@@ -339,6 +339,7 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
             {
                 Model_Payee::Data* payee = Model_Payee::instance().create();
                 payee->PAYEENAME = cbPayee_->GetValue();
+                payee->ACTIVE = 1;
                 Model_Payee::instance().save(payee);
                 mmWebApp::MMEX_WebApp_UpdatePayee();
                 payee_id = payee->PAYEEID;
@@ -349,6 +350,9 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
         else
             payee_id = cbPayee_->mmGetId();
     }
+
+    if (tag_checkbox_->IsChecked() && !tagTextCtrl_->IsValid())
+        return  mmErrorDialogs::ToolTip4Object(tagTextCtrl_, _("Invalid value"), _("Tags"), wxICON_ERROR);
 
     if (m_transferAcc_checkbox->IsChecked())
     {
@@ -362,12 +366,12 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
             return mmErrorDialogs::InvalidCategory(cbCategory_);
     }
     int categ_id = cbCategory_->mmGetCategoryId();
-    int m_subcateg_id = cbCategory_->mmGetSubcategoryId();
 
     const auto split = Model_Splittransaction::instance().get_all();
 
     std::vector<int> skip_trx;
     Model_Checking::instance().Savepoint();
+    Model_Taglink::instance().Savepoint();
     for (const auto& id : m_transaction_id)
     {
         Model_Checking::Data *trx = Model_Checking::instance().get(id);
@@ -376,10 +380,6 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
         if (is_locked) {
             skip_trx.push_back(trx->TRANSID);
             continue;
-        }
-
-        if (m_date_checkbox->IsChecked()) {
-            trx->TRANSDATE = m_dpc->GetValue().FormatISODate();
         }
 
         if (m_status_checkbox->IsChecked()) {
@@ -396,12 +396,25 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
             trx->PAYEEID = -1;
         }
 
+        if (m_date_checkbox->IsChecked()) {
+            wxString date = m_dpc->GetValue().FormatISODate();
+            const Model_Account::Data* account = Model_Account::instance().get(trx->ACCOUNTID);
+            const Model_Account::Data* to_account = Model_Account::instance().get(trx->TOACCOUNTID);
+            if ((date < account->INITIALDATE) ||
+                (to_account && (date < to_account->INITIALDATE)))
+            {
+                skip_trx.push_back(trx->TRANSID);
+                continue;
+            }
+            trx->TRANSDATE = date;
+        }
+
         if (m_color_checkbox->IsChecked()) {
             int color_id = bColours_->GetColorId();
             if (color_id < 0 || color_id > 7) {
                 return mmErrorDialogs::ToolTip4Object(bColours_, _("Color"), _("Invalid value"), wxICON_ERROR);
             }
-            trx->FOLLOWUPID = color_id == 0 ? -1 : color_id ;
+            trx->COLOR = color_id == 0 ? -1 : color_id ; 
         }
 
         if (m_notes_checkbox->IsChecked()) {
@@ -415,19 +428,48 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
             }
         }
 
+        // Update tags
+        if (tag_checkbox_->IsChecked()) {
+            Model_Taglink::Data_Set taglinks;
+            const wxString& refType = Model_Attachment::reftype_desc(Model_Attachment::TRANSACTION);
+            wxArrayInt tagIds = tagTextCtrl_->GetTagIDs();
+
+            if (tag_append_checkbox_->IsChecked()) {
+                // Since we are appending, start with the existing tags
+                taglinks = Model_Taglink::instance().find(Model_Taglink::REFTYPE(refType), Model_Taglink::REFID(trx->TRANSID));
+                // Remove existing tags from the new list to avoid duplicates
+                for (const auto& link : taglinks)
+                {
+                    int index = tagIds.Index(link.TAGID);
+                    if (index != wxNOT_FOUND)
+                        tagIds.RemoveAt(index);
+                }
+            }
+            // Create new taglinks for each tag ID
+            for (const auto& tagId : tagIds)
+            {
+                Model_Taglink::Data* t = Model_Taglink::instance().create();
+                t->REFTYPE = refType;
+                t->REFID = trx->TRANSID;
+                t->TAGID = tagId;
+                taglinks.push_back(*t);
+            }
+            // Update the links for the transaction
+            Model_Taglink::instance().update(taglinks, refType, trx->TRANSID);
+        }
+
         if (m_amount_checkbox->IsChecked()) {
             trx->TRANSAMOUNT = amount;
         }
 
         if (m_categ_checkbox->IsChecked()) {
             trx->CATEGID = categ_id;
-            trx->SUBCATEGID = m_subcateg_id;
         }
 
         if (m_type_checkbox->IsChecked()) {
             trx->TRANSCODE = type;
         }
- 
+
         // Need to consider TOTRANSAMOUNT if material transaction change
         if (m_amount_checkbox->IsChecked() || m_type_checkbox->IsChecked() || m_transferAcc_checkbox->IsChecked())
         {
@@ -442,7 +484,7 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
                 const auto to_curr = Model_Currency::instance().get(to_acc->CURRENCYID);
                 if (curr == to_curr)
                 {
-                    trx->TOTRANSAMOUNT = trx->TRANSAMOUNT;                
+                    trx->TOTRANSAMOUNT = trx->TRANSAMOUNT;
                 } else
                 {
                     double exch = 1;
@@ -461,6 +503,7 @@ void transactionsUpdateDialog::OnOk(wxCommandEvent& WXUNUSED(event))
 
         Model_Checking::instance().save(trx);
     }
+    Model_Taglink::instance().ReleaseSavepoint();
     Model_Checking::instance().ReleaseSavepoint();
 
     skip_trx; //TODO: resume
@@ -482,7 +525,7 @@ void transactionsUpdateDialog::SetPayeeTransferControls()
     } else
     {
         m_transferAcc_checkbox->SetValue(false);
-        cbAccount_->Enable(false);        
+        cbAccount_->Enable(false);
     }
 }
 
@@ -503,6 +546,8 @@ void transactionsUpdateDialog::OnCheckboxClick(wxCommandEvent& event)
     bColours_->Enable(m_color_checkbox->IsChecked());
     m_notes_ctrl->Enable(m_notes_checkbox->IsChecked());
     m_append_checkbox->Enable(m_notes_checkbox->IsChecked());
+    tagTextCtrl_->Enable(tag_checkbox_->IsChecked());
+    tag_append_checkbox_->Enable(tag_checkbox_->IsChecked());
 
     if (m_type_checkbox->IsChecked()) {
         SetPayeeTransferControls();
@@ -543,7 +588,7 @@ void transactionsUpdateDialog::OnMoreFields(wxCommandEvent& WXUNUSED(event))
     wxBitmapButton* button = static_cast<wxBitmapButton*>(FindWindow(ID_BTN_CUSTOMFIELDS));
 
     if (button)
-        button->SetBitmap(mmBitmap(m_custom_fields->IsCustomPanelShown() ? png::RIGHTARROW : png::LEFTARROW, mmBitmapButtonSize));
+        button->SetBitmap(mmBitmapBundle(m_custom_fields->IsCustomPanelShown() ? png::RIGHTARROW : png::LEFTARROW, mmBitmapButtonSize));
 
     m_custom_fields->ShowHideCustomPanel();
 
@@ -565,12 +610,13 @@ void transactionsUpdateDialog::OnComboKey(wxKeyEvent& event)
             {
                 mmPayeeDialog dlg(this, true);
                 dlg.ShowModal();
-                cbPayee_->mmDoReInitialize();
+                if (dlg.getRefreshRequested())
+                    cbPayee_->mmDoReInitialize();
                 int payee_id = dlg.getPayeeId();
                 Model_Payee::Data* payee = Model_Payee::instance().get(payee_id);
                 if (payee) {
                     cbPayee_->ChangeValue(payee->PAYEENAME);
-                    cbPayee_->SetInsertionPointEnd();
+                    cbPayee_->SelectAll();
                 }
                 return;
             }
@@ -581,11 +627,13 @@ void transactionsUpdateDialog::OnComboKey(wxKeyEvent& event)
             auto category = cbCategory_->GetValue();
             if (category.empty())
             {
-                mmCategDialog dlg(this, true, -1, -1);
+                mmCategDialog dlg(this, true, -1);
                 dlg.ShowModal();
-                cbCategory_->mmDoReInitialize();
-                category = Model_Category::full_name(dlg.getCategId(), dlg.getSubCategId());
+                if (dlg.getRefreshRequested())
+                    cbCategory_->mmDoReInitialize();
+                category = Model_Category::full_name(dlg.getCategId());
                 cbCategory_->ChangeValue(category);
+                cbCategory_->SelectAll();
                 return;
             }
         }
@@ -593,6 +641,14 @@ void transactionsUpdateDialog::OnComboKey(wxKeyEvent& event)
         default:
             break;
         }
+    }
+
+    // The first time the ALT key is pressed accelerator hints are drawn, but custom painting on the tags button
+    // is not applied. We need to refresh the tag ctrl to redraw the drop button with the correct image.
+    if (event.AltDown() && !altRefreshDone)
+    {
+        tagTextCtrl_->Refresh();
+        altRefreshDone = true;
     }
 
     event.Skip();

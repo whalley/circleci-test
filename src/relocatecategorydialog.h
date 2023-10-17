@@ -35,20 +35,23 @@ class relocateCategoryDialog : public wxDialog
 
 public:
     relocateCategoryDialog();
+    ~relocateCategoryDialog();
     relocateCategoryDialog(wxWindow* parent, int sourceCatID = -1, int sourceSubCatID = -1);
 
     bool Create(wxWindow* parent
         , wxWindowID id = wxID_ANY
-        , const wxString& caption = _("Relocate Category Dialog")
+        , const wxString& caption = _("Merge categories")
         , const wxPoint& pos = wxDefaultPosition
         , const wxSize& size = wxDefaultSize
-        , long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX );
+        , long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX
+        , const wxString& name = "Merge categories");
 
     void CreateControls();
 
     // utility functions
     void OnTextUpdated(wxCommandEvent& event);
     void OnFocusChange(wxChildFocusEvent& event);
+    void OnComboKey(wxKeyEvent& event);
     void OnCancel(wxCommandEvent& event);
     void OnOk(wxCommandEvent& event);
 

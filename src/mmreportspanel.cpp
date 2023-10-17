@@ -39,7 +39,10 @@ EVT_CHOICE(ID_CHOICE_YEAR, mmReportsPanel::OnYearChanged)
 EVT_CHOICE(ID_CHOICE_BUDGET, mmReportsPanel::OnBudgetChanged)
 EVT_CHOICE(ID_CHOICE_ACCOUNTS, mmReportsPanel::OnAccountChanged)
 EVT_DATE_CHANGED(wxID_ANY, mmReportsPanel::OnStartEndDateChanged)
+EVT_TIME_CHANGED(wxID_ANY, mmReportsPanel::OnStartEndDateChanged)
 EVT_CHOICE(ID_CHOICE_CHART, mmReportsPanel::OnChartChanged)
+EVT_SPINCTRL(ID_CHOICE_FORWARD_MONTHS, mmReportsPanel::OnForwardMonthsChangedSpin)
+EVT_TEXT_ENTER(ID_CHOICE_FORWARD_MONTHS, mmReportsPanel::OnForwardMonthsChangedText)
 EVT_BUTTON(wxID_ANY, mmReportsPanel::OnShiftPressed)
 wxEND_EVENT_TABLE()
 
@@ -50,14 +53,7 @@ mmReportsPanel::mmReportsPanel(
     const wxString& name)
     : rb_(rb)
     , m_frame(frame)
-    , m_date_ranges(nullptr)
-    , m_start_date(nullptr)
-    , m_end_date(nullptr)
-    , m_accounts(nullptr)
-    , m_chart(nullptr)
     , cleanup_(cleanupReport)
-    , cleanupmem_(false)
-    , m_shift(0)
 {
     Create(parent, winid, pos, size, style, name);
 }
@@ -252,7 +248,7 @@ void mmReportsPanel::CreateControls()
         else if (rp & rb_->RepParams::SINGLE_DATE)
         {
             wxStaticText* itemStaticTextH1 = new wxStaticText(itemPanel3
-                , wxID_ANY, _("Date"));
+                , wxID_ANY, _("Date:"));
             mmSetOwnFont(itemStaticTextH1, GetFont().Larger());
             itemBoxSizerHeader->Add(itemStaticTextH1, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(5);
@@ -262,15 +258,13 @@ void mmReportsPanel::CreateControls()
             m_start_date->SetValue(wxDateTime::Today());
             m_start_date->Enable(true);
 
-            m_end_date = nullptr;
-
             itemBoxSizerHeader->Add(m_start_date, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(30);
         }
         else if (rp & rb_->RepParams::MONTHES)
         {
             wxStaticText* itemStaticTextH1 = new wxStaticText(itemPanel3
-                , wxID_ANY, _("Date"));
+                , wxID_ANY, _("Date:"));
             mmSetOwnFont(itemStaticTextH1, GetFont().Larger());
             itemBoxSizerHeader->Add(itemStaticTextH1, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(5);
@@ -280,6 +274,20 @@ void mmReportsPanel::CreateControls()
             rb_->setSelection(m_shift);
 
             itemBoxSizerHeader->Add(up_down_month, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
+            itemBoxSizerHeader->AddSpacer(30);
+        }
+
+        if (rp & rb_->RepParams::TIME)
+        {
+            wxStaticText* itemStaticTextH1 = new wxStaticText(itemPanel3
+                , wxID_ANY, _("Time:"));
+            mmSetOwnFont(itemStaticTextH1, GetFont().Larger());
+            itemBoxSizerHeader->Add(itemStaticTextH1, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
+            itemBoxSizerHeader->AddSpacer(5);
+
+            m_time = new wxTimePickerCtrl(itemPanel3, ID_CHOICE_TIME);
+
+            itemBoxSizerHeader->Add(m_time, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(30);
         }
 
@@ -324,9 +332,12 @@ void mmReportsPanel::CreateControls()
             for (const auto& e : Model_Budgetyear::instance().all(Model_Budgetyear::COL_BUDGETYEARNAME))
             {
                 const wxString& name = e.BUDGETYEARNAME;
-                m_date_ranges->Append(name, new wxStringClientData(wxString::Format("%i", e.BUDGETYEARID)));
-                if (sel_id == e.BUDGETYEARID)
-                    sel_name = e.BUDGETYEARNAME;
+                if (name.length() == 4) // Only years
+                {
+                    m_date_ranges->Append(name, new wxStringClientData(wxString::Format("%i", e.BUDGETYEARID)));
+                    if (sel_id == e.BUDGETYEARID)
+                        sel_name = e.BUDGETYEARNAME;
+                }
             }
             m_date_ranges->SetStringSelection(sel_name);
 
@@ -341,8 +352,8 @@ void mmReportsPanel::CreateControls()
             itemBoxSizerHeader->Add(itemStaticTextH1, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(5);
             m_accounts = new wxChoice(itemPanel3, ID_CHOICE_ACCOUNTS);
-            m_accounts->Append(_("All Accounts"));
-            m_accounts->Append(_("Specific Accounts"));
+            m_accounts->Append(_("All Accounts:"));
+            m_accounts->Append(_("Specific Accounts:"));
             for (const auto& e : Model_Account::instance().TYPE_CHOICES)
             {
                 if (e.first != Model_Account::INVESTMENT) {
@@ -352,6 +363,21 @@ void mmReportsPanel::CreateControls()
             m_accounts->SetSelection(rb_->getAccountSelection());
 
             itemBoxSizerHeader->Add(m_accounts, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
+            itemBoxSizerHeader->AddSpacer(30);
+        }
+
+        if (rp & rb_->RepParams::FORWARD_MONTHS)
+        {
+            wxStaticText* itemStaticTextH1 = new wxStaticText(itemPanel3
+                , wxID_ANY, _("Future Months:"));
+            mmSetOwnFont(itemStaticTextH1, GetFont().Larger());
+            itemBoxSizerHeader->Add(itemStaticTextH1, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
+            itemBoxSizerHeader->AddSpacer(5);
+            m_forwardMonths = new wxSpinCtrl(itemPanel3, ID_CHOICE_FORWARD_MONTHS
+                ,wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER);
+            m_forwardMonths->SetRange(1, 120);
+            m_forwardMonths->SetValue(rb_->getForwardMonths());
+            itemBoxSizerHeader->Add(m_forwardMonths, 0, wxALL | wxALIGN_CENTER_VERTICAL, 1);
             itemBoxSizerHeader->AddSpacer(30);
         }
 
@@ -466,6 +492,28 @@ void mmReportsPanel::OnChartChanged(wxCommandEvent& WXUNUSED(event))
     }
 }
 
+void mmReportsPanel::OnForwardMonthsChangedSpin(wxSpinEvent& WXUNUSED(event))
+{
+    if (rb_)
+    {
+        int sel = m_forwardMonths->GetValue();
+        if (sel != rb_->getForwardMonths())
+        {
+            rb_->setForwardMonths(sel);
+            saveReportText(false);
+            rb_->setReportSettings();
+        }
+    }
+}
+
+void mmReportsPanel::OnForwardMonthsChangedText(wxCommandEvent& event)
+{
+    m_forwardMonths->SetValue(event.GetString());
+    wxSpinEvent evt;
+    OnForwardMonthsChangedSpin(evt);
+}
+
+
 void mmReportsPanel::OnShiftPressed(wxCommandEvent& event)
 {
     if (rb_)
@@ -481,6 +529,19 @@ void mmReportsPanel::OnNewWindow(wxWebViewEvent& evt)
     const wxString uri = evt.GetURL();
     wxString sData;
 
+    if (rb_->report_parameters() & rb_->RepParams::DATE_RANGE)
+    {
+        auto idx = this->m_date_ranges->GetSelection();
+        const mmDateRange* date_range = static_cast<mmDateRange*>(this->m_date_ranges->GetClientData(idx));
+        if (date_range)
+        {
+            this->m_start_date->SetValue(date_range->start_date());
+            this->m_end_date->SetValue(date_range->end_date());
+            rb_->setSelection(idx);
+            rb_->setReportSettings();
+            rb_->m_filter.setDateRange(date_range->start_date(), date_range->end_date());
+        }
+    }
     wxRegEx pattern(R"(^(https?:)|(file:)\/\/)");
     if (pattern.Matches(uri))
     {
@@ -500,37 +561,31 @@ void mmReportsPanel::OnNewWindow(wxWebViewEvent& evt)
         while ( tokenizer.HasMoreTokens() )
         {
             switch (i++) {
-                case 0:
-                    catID = wxAtoi(tokenizer.GetNextToken());
-                    break;
-                case 1:
-                    subCatID = wxAtoi(tokenizer.GetNextToken());
-                    break;
-                case 2:
-                    payeeID = wxAtoi(tokenizer.GetNextToken());
-                    break;
-                default:
-                    break;
+            case 0:
+                catID = wxAtoi(tokenizer.GetNextToken());
+                break;
+            case 1:
+                subCatID = wxAtoi(tokenizer.GetNextToken());
+                break;
+            case 2:
+                payeeID = wxAtoi(tokenizer.GetNextToken());
+                break;
+            default:
+                break;
             }
         }
 
         if (catID > 0)
         {
-            std::vector<std::pair<int, int>> cats;
-            std::pair<int, int> cat;
-            cat.first = catID;
+            std::vector<int> cats;
             if (-2 == subCatID) // include all sub categories
             {
-                Model_Category::Data *category = Model_Category::instance().get(catID);
-                for (const auto &subCategory : Model_Category::sub_category(category))
+                for (const auto& subCategory : Model_Category::sub_tree(Model_Category::instance().get(catID)))
                 {
-                    cat.second = subCategory.SUBCATEGID;
-                    cats.push_back(cat);
+                    cats.push_back(subCategory.CATEGID);
                 }
-                subCatID = -1;          
             }
-            cat.second = subCatID;
-            cats.push_back(cat);
+            cats.push_back(catID);
             rb_->m_filter.setCategoryList(cats);
         }
 

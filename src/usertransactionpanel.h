@@ -53,6 +53,9 @@ public:
     void SetTransactionValue(const double& trans_value, bool fixed_value = false);
     void SetTransactionNumber(const wxString& trans_number);
     void SetTransactionAccount(const wxString& trans_account);
+    void SetTransactionStatus(const int trans_status_enum);
+    void SetTransactionPayee(const int payeeid);
+    void SetTransactionCategory(const int categid);
 
     int TransactionType();
     Model_Translink::CHECKING_TYPE CheckingType();
@@ -76,7 +79,6 @@ private:
     void OnTransPayeeButton(wxCommandEvent& WXUNUSED(event));
     void OnTransCategoryButton(wxCommandEvent& WXUNUSED(event));
 
-    void OnEnteredText(wxCommandEvent& event);
     void OnFrequentNotes(wxCommandEvent& event);
     void onSelectedNote(wxCommandEvent& event);
     void OnAttachments(wxCommandEvent& WXUNUSED(event));
@@ -96,6 +98,7 @@ private:
     wxTextCtrl* m_entered_notes;
     std::vector<wxString> m_frequent_notes;
     wxBitmapButton* m_attachment;
+    wxButton* frequent_notes;
  
     enum
     {

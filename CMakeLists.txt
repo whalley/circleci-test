@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 
 # ---------------------------------------------------------------------------
 # MMEX uses semantic versioning Ref: http://semver.org
@@ -17,9 +17,9 @@
 # ./resources/mmex.rc
 # ---------------------------------------------------------------------------
 
-set(MMEX_VERSION 1.5.17)
+set(MMEX_VERSION 1.7.0)
 SET(MMEX_VERSION_ALPHA -1)
-SET(MMEX_VERSION_BETA -1)
+SET(MMEX_VERSION_BETA 1)
 SET(MMEX_VERSION_RC -1)
 
 # ---------------------------------------------------------------------------
@@ -123,6 +123,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
                 set(LINUX_DISTRO "${CMAKE_MATCH_1}")
                 set(LINUX_DISTRO_REL ${CMAKE_MATCH_2})
             endif()
+        # Check if cmake is new enough for querying host-specific system information:
+        # https://cmake.org/cmake/help/latest/command/cmake_host_system_information.html
+        elseif(EXISTS /etc/os-release AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.22.0")
+            cmake_host_system_information(RESULT LINUX_DISTRO QUERY DISTRIB_NAME)
+            cmake_host_system_information(RESULT LINUX_DISTRO_REL QUERY DISTRIB_VERSION)
         elseif(EXISTS /etc/arch-release)
             execute_process(COMMAND  uname -r
                 OUTPUT_VARIABLE LINUX_DISTRO_REL
@@ -612,8 +617,10 @@ install(FILES
     resources/sorttable.js
     resources/jquery.min.js
     resources/home_page.htt
-    resources/kaching.wav
+    resources/drop.wav
+    resources/cash.wav
     resources/mmex.png
+    resources/mmex.svg
     DESTINATION "${MMEX_RES_DIR}")
 
 #Themes & GRM
@@ -623,15 +630,21 @@ install(FILES ${GRMFILES} DESTINATION ${MMEX_RES_DIR_REPORTS})
 if(LINUX)
     # .desktop File
     install(FILES
-        resources/mmex.desktop
+        resources/dist/linux/share/applications/org.moneymanagerex.MMEX.desktop
         DESTINATION share/applications)
+    install(FILES
+        resources/dist/linux/share/metainfo/org.moneymanagerex.MMEX.metainfo.xml
+        DESTINATION share/metainfo)
+    install(FILES
+        resources/dist/linux/share/mime/packages/org.moneymanagerex.MMEX.mime.xml
+        DESTINATION share/mime/packages)
 endif()
 
 # Icons
 if(LINUX)
     install(FILES
         resources/mmex.svg
-        DESTINATION share/icons/hicolor/scalable/apps)
+        DESTINATION share/icons/hicolor/scalable/apps RENAME org.moneymanagerex.MMEX.svg)
 elseif(APPLE)
     install(FILES
         "${MACOSX_APP_ICON_FILE}"
@@ -672,7 +685,7 @@ set(CPACK_DEBIAN_PACKAGE_HOMEPAGE http://www.moneymanagerex.org/)
 set(CPACK_DEBIAN_PACKAGE_REPLACES moneymanagerex)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS wx${wxWidgets_VERSION_MAJOR}.${wxWidgets_VERSION_MINOR}-i18n)
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS wx${wxWidgets_VERSION_MAJOR}.${wxWidgets_VERSION_MINOR}-i18n)
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 set(CPACK_RPM_PACKAGE_LICENSE GPL-2+)
@@ -784,7 +797,7 @@ else()
                     OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
                     OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
             endif()
-            set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_DEBIAN_PACKAGE_RELEASE}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
+            set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}-${CPACK_DEBIAN_PACKAGE_RELEASE}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
         elseif(CPACK_GENERATOR STREQUAL "RPM")
             if(NOT CPACK_RPM_PACKAGE_ARCHITECTURE)
                 execute_process(COMMAND uname -m

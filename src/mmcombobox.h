@@ -1,5 +1,6 @@
 /*******************************************************
 Copyright (C) 2014 Nikolay Akimov
+Copyright (C) 2022  Mark Whalley (mark@ipx.co.uk)
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -58,12 +59,12 @@ public:
     void setSelection(int &id)
     {
         if (m_payee) {
-            for (const auto payee : Model_Payee::instance().all(Model_Payee::COL_PAYEENAME))
+            for (const auto &payee : Model_Payee::instance().all(Model_Payee::COL_PAYEENAME))
                 if (payee.PAYEEID == id) this->ChangeValue(payee.PAYEENAME);
         }
         else
         {
-            for (const auto acc : Model_Account::instance().all(Model_Account::COL_ACCOUNTNAME))
+            for (const auto &acc : Model_Account::instance().all(Model_Account::COL_ACCOUNTNAME))
                 if (acc.ACCOUNTID == id) this->ChangeValue(acc.ACCOUNTNAME);
         }
     }
@@ -79,6 +80,7 @@ public:
             else {
                 p = Model_Payee::instance().create();
                 p->PAYEENAME = this->GetValue();
+                p->ACTIVE = 1;
                 Model_Payee::instance().save(p);
                 mmWebApp::MMEX_WebApp_UpdatePayee();
             }

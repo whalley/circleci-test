@@ -23,8 +23,9 @@
 #include "Model_Attachment.h"
 #include "Model_Category.h"
 #include "Model_Payee.h"
+#include "Model_Tag.h"
 
-/* TODO: Move attachment management outside of attachmentdialog */
+ /* TODO: Move attachment management outside of attachmentdialog */
 #include "attachmentdialog.h"
 
 const std::vector<std::pair<Model_Billsdeposits::TYPE, wxString> > Model_Billsdeposits::TYPE_CHOICES =
@@ -44,11 +45,11 @@ const std::vector<std::pair<Model_Billsdeposits::STATUS_ENUM, wxString> > Model_
 };
 
 Model_Billsdeposits::Model_Billsdeposits()
-: Model<DB_Table_BILLSDEPOSITS_V1>()
-, m_autoExecuteManual (false)
-, m_autoExecuteSilent (false)
-, m_requireExecution (false)
-, m_allowExecution (false)
+    : Model<DB_Table_BILLSDEPOSITS_V1>()
+    , m_autoExecuteManual (false)
+    , m_autoExecuteSilent (false)
+    , m_requireExecution (false)
+    , m_allowExecution (false)
 
 {
 }
@@ -105,7 +106,7 @@ wxDate Model_Billsdeposits::NEXTOCCURRENCEDATE(const Data* r)
 {
     return Model::to_date(r->NEXTOCCURRENCEDATE);
 }
-    
+
 wxDate Model_Billsdeposits::NEXTOCCURRENCEDATE(const Data& r)
 {
     return Model::to_date(r.NEXTOCCURRENCEDATE);
@@ -117,7 +118,7 @@ Model_Billsdeposits::TYPE Model_Billsdeposits::type(const wxString& r)
     const auto it = cache.find(r);
     if (it != cache.end()) return it->second;
 
-    for (const auto& t : TYPE_CHOICES) 
+    for (const auto& t : TYPE_CHOICES)
     {
         if (r.CmpNoCase(t.second) == 0)
         {
@@ -145,7 +146,7 @@ Model_Billsdeposits::STATUS_ENUM Model_Billsdeposits::status(const wxString& r)
 
     for (const auto & s : STATUS_ENUM_CHOICES)
     {
-        if (r.CmpNoCase(s.second) == 0) 
+        if (r.CmpNoCase(s.second) == 0)
         {
             cache.insert(std::make_pair(r, s.first));
             return s.first;
@@ -185,6 +186,8 @@ bool Model_Billsdeposits::remove(int id)
 {
     for (auto &item : Model_Billsdeposits::splittransaction(get(id)))
         Model_Budgetsplittransaction::instance().remove(item.SPLITTRANSID);
+    // Delete tags for the scheduled transaction
+    Model_Taglink::instance().DeleteAllTags(Model_Attachment::reftype_desc(Model_Attachment::BILLSDEPOSIT), id);
     return this->remove(id, db_);
 }
 
@@ -219,19 +222,14 @@ void Model_Billsdeposits::decode_fields(const Data& q1)
     int repeats = q1.REPEATS;
     int numRepeats = q1.NUMOCCURRENCES;
 
-    if (repeats >= BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute User Acknowlegement required
+    if (repeats >= 2 * BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute Silent mode
+    {
+        m_autoExecuteSilent = true;
+    } else if (repeats >= BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute User Acknowlegement required
     {
         m_autoExecuteManual = true;
-        repeats -= BD_REPEATS_MULTIPLEX_BASE;
     }
-
-    if (repeats >= BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute Silent mode
-    {
-        m_autoExecuteManual = false;               // Can only be manual or auto. Not both
-        m_autoExecuteSilent = true;
-        repeats -= BD_REPEATS_MULTIPLEX_BASE;
-    }
-
+    repeats %= BD_REPEATS_MULTIPLEX_BASE;
     if ((repeats < Model_Billsdeposits::REPEAT_IN_X_DAYS) || (numRepeats > Model_Billsdeposits::REPEAT_NONE) || (repeats > Model_Billsdeposits::REPEAT_EVERY_X_MONTHS))
     {
         m_allowExecution = true;
@@ -297,12 +295,37 @@ bool Model_Billsdeposits::AllowTransaction(const Data& r, AccountBalance& bal)
         abort_transaction = true;
     }
 
-    if (abort_transaction && wxMessageBox(_(
-        "A recurring transaction will exceed your account limit.\n\n"
-        "Do you wish to continue?")
-        , _("MMEX Recurring Transaction Check"), wxYES_NO | wxICON_WARNING) == wxYES)
+    if (abort_transaction)
     {
-        abort_transaction = false;
+        wxString message = _("A scheduled transaction will exceed your account limit.\n\n"
+            "Account: %1$s\n"
+            "Current Balance: %1$6.2f\n"
+            "Transaction amount: %3$6.2f\n"
+            "%4$s: %5$6.2f\n\n"
+            "Do you wish to continue?"
+        );
+
+        wxString limitDescription;
+        double limitAmount{ 0.0L };
+
+        if (account->MINIMUMBALANCE > 0)
+        {
+            limitDescription = _("Minimum Balance");
+            limitAmount = account->MINIMUMBALANCE;
+        }
+
+        if (account->CREDITLIMIT > 0)
+        {
+            limitDescription = _("Credit Limit");
+            limitAmount = account->CREDITLIMIT;
+        }
+
+        message.Printf(message, account->ACCOUNTNAME, current_account_balance, r.TRANSAMOUNT, limitDescription, limitAmount);
+
+        if (wxMessageBox(message, _("MMEX Scheduled Transaction Check"), wxYES_NO | wxICON_WARNING) == wxYES)
+        {
+            abort_transaction = false;
+        }
     }
 
     if (!abort_transaction)
@@ -318,12 +341,7 @@ void Model_Billsdeposits::completeBDInSeries(int bdID)
     Data* bill = get(bdID);
     if (bill)
     {
-        int repeats = bill->REPEATS;
-        // DeMultiplex the Auto Executable fields.
-        if (repeats >= BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute User Acknowlegement required
-            repeats -= BD_REPEATS_MULTIPLEX_BASE;
-        if (repeats >= BD_REPEATS_MULTIPLEX_BASE)    // Auto Execute Silent mode
-            repeats -= BD_REPEATS_MULTIPLEX_BASE;
+        int repeats = bill->REPEATS % BD_REPEATS_MULTIPLEX_BASE; // DeMultiplex the Auto Executable fields.
         int numRepeats = bill->NUMOCCURRENCES;
         const wxDateTime& payment_date_current = TRANSDATE(bill);
         const wxDateTime& payment_date_update = nextOccurDate(repeats, numRepeats, payment_date_current);
@@ -414,14 +432,35 @@ Model_Billsdeposits::Full_Data::Full_Data()
 Model_Billsdeposits::Full_Data::Full_Data(const Data& r) : Data(r)
 {
     m_bill_splits = splittransaction(r);
+
+    m_tags = Model_Taglink::instance().find(Model_Taglink::REFTYPE(Model_Attachment::reftype_desc(Model_Attachment::BILLSDEPOSIT)), Model_Taglink::REFID(r.BDID));
+
+    if (!m_tags.empty()) {
+        wxArrayString tagnames;
+        for (const auto& entry : m_tags)
+            tagnames.Add(Model_Tag::instance().get(entry.TAGID)->TAGNAME);
+        // Sort TAGNAMES
+        tagnames.Sort();
+        for (const auto& name : tagnames)
+            this->TAGNAMES += (this->TAGNAMES.empty() ? "" : " ") + name;
+    }
+
     if (!m_bill_splits.empty())
     {
         for (const auto& entry : m_bill_splits)
-            CATEGNAME += (CATEGNAME.empty() ? " * " : ", ")
-            + Model_Category::full_name(entry.CATEGID, entry.SUBCATEGID);
+        {
+            CATEGNAME += (CATEGNAME.empty() ? " + " : ", ")
+                + Model_Category::full_name(entry.CATEGID);
+
+            wxString splitTags;
+            for (const auto& tag : Model_Taglink::instance().get(Model_Attachment::reftype_desc(Model_Attachment::BILLSDEPOSITSPLIT), entry.SPLITTRANSID))
+                splitTags.Append(tag.first + " ");
+            if (!splitTags.IsEmpty())
+                TAGNAMES.Append((TAGNAMES.IsEmpty() ? "" : ", ") + splitTags.Trim());
+        }
     }
     else
-        CATEGNAME = Model_Category::full_name(r.CATEGID, r.SUBCATEGID);
+        CATEGNAME = Model_Category::full_name(r.CATEGID);
 
     ACCOUNTNAME = Model_Account::get_account_name(r.ACCOUNTID);
 
@@ -430,13 +469,14 @@ Model_Billsdeposits::Full_Data::Full_Data(const Data& r) : Data(r)
     {
         PAYEENAME = Model_Account::get_account_name(r.TOACCOUNTID);
     }
+
 }
 
 wxString Model_Billsdeposits::Full_Data::real_payee_name() const
 {
     if (TYPE::TRANSFER == type(this->TRANSCODE))
     {
-            return ("> " + this->PAYEENAME);
+        return ("> " + this->PAYEENAME);
     }
     return this->PAYEENAME;
 }

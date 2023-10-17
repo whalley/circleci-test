@@ -1,7 +1,7 @@
 ﻿// -*- C++ -*-
 //=============================================================================
 /**
- *      Copyright: (c) 2013 - 2022 Guan Lisheng (guanlisheng@gmail.com)
+ *      Copyright: (c) 2013 - 2023 Guan Lisheng (guanlisheng@gmail.com)
  *      Copyright: (c) 2017 - 2018 Stefano Giorgio (stef145g)
  *      Copyright: (c) 2022 Mark Whalley (mark@ipx.co.uk)
  *
@@ -12,7 +12,7 @@
  *      @brief
  *
  *      Revision History:
- *          AUTO GENERATED at 2022-07-05 12:16:41.553818.
+ *          AUTO GENERATED at 2023-07-09 11:41:36.730232.
  *          DO NOT EDIT!
  */
 //=============================================================================
@@ -64,7 +64,7 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
     /** Removes all records stored in memory (cache) for the table*/ 
     void destroy_cache()
     {
-        std::for_each(cache_.begin(), cache_.end(), std::mem_fun(&Data::destroy));
+        std::for_each(cache_.begin(), cache_.end(), std::mem_fn(&Data::destroy));
         cache_.clear();
         index_by_id_.clear(); // no memory release since it just stores pointer and the according objects are in cache
     }
@@ -76,7 +76,7 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         {
             try
             {
-                db->ExecuteUpdate("CREATE TABLE BILLSDEPOSITS_V1(BDID integer primary key, ACCOUNTID integer NOT NULL, TOACCOUNTID integer, PAYEEID integer NOT NULL, TRANSCODE TEXT NOT NULL /* Withdrawal, Deposit, Transfer */, TRANSAMOUNT numeric NOT NULL, STATUS TEXT /* None, Reconciled, Void, Follow up, Duplicate */, TRANSACTIONNUMBER TEXT, NOTES TEXT, CATEGID integer, SUBCATEGID integer, TRANSDATE TEXT, FOLLOWUPID integer, TOTRANSAMOUNT numeric, REPEATS integer, NEXTOCCURRENCEDATE TEXT, NUMOCCURRENCES integer)");
+                db->ExecuteUpdate("CREATE TABLE BILLSDEPOSITS_V1(BDID integer primary key, ACCOUNTID integer NOT NULL, TOACCOUNTID integer, PAYEEID integer NOT NULL, TRANSCODE TEXT NOT NULL /* Withdrawal, Deposit, Transfer */, TRANSAMOUNT numeric NOT NULL, STATUS TEXT /* None, Reconciled, Void, Follow up, Duplicate */, TRANSACTIONNUMBER TEXT, NOTES TEXT, CATEGID integer, TRANSDATE TEXT, FOLLOWUPID integer, TOTRANSAMOUNT numeric, REPEATS integer, NEXTOCCURRENCEDATE TEXT, NUMOCCURRENCES integer, COLOR integer DEFAULT -1)");
                 this->ensure_data(db);
             }
             catch(const wxSQLite3Exception &e) 
@@ -172,12 +172,6 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         explicit CATEGID(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
     };
     
-    struct SUBCATEGID : public DB_Column<int>
-    { 
-        static wxString name() { return "SUBCATEGID"; } 
-        explicit SUBCATEGID(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
-    };
-    
     struct TRANSDATE : public DB_Column<wxString>
     { 
         static wxString name() { return "TRANSDATE"; } 
@@ -214,6 +208,12 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         explicit NUMOCCURRENCES(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
     };
     
+    struct COLOR : public DB_Column<int>
+    { 
+        static wxString name() { return "COLOR"; } 
+        explicit COLOR(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
+    };
+    
     typedef BDID PRIMARY;
     enum COLUMN
     {
@@ -227,13 +227,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         , COL_TRANSACTIONNUMBER = 7
         , COL_NOTES = 8
         , COL_CATEGID = 9
-        , COL_SUBCATEGID = 10
-        , COL_TRANSDATE = 11
-        , COL_FOLLOWUPID = 12
-        , COL_TOTRANSAMOUNT = 13
-        , COL_REPEATS = 14
-        , COL_NEXTOCCURRENCEDATE = 15
-        , COL_NUMOCCURRENCES = 16
+        , COL_TRANSDATE = 10
+        , COL_FOLLOWUPID = 11
+        , COL_TOTRANSAMOUNT = 12
+        , COL_REPEATS = 13
+        , COL_NEXTOCCURRENCEDATE = 14
+        , COL_NUMOCCURRENCES = 15
+        , COL_COLOR = 16
     };
 
     /** Returns the column name as a string*/
@@ -251,13 +251,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             case COL_TRANSACTIONNUMBER: return "TRANSACTIONNUMBER";
             case COL_NOTES: return "NOTES";
             case COL_CATEGID: return "CATEGID";
-            case COL_SUBCATEGID: return "SUBCATEGID";
             case COL_TRANSDATE: return "TRANSDATE";
             case COL_FOLLOWUPID: return "FOLLOWUPID";
             case COL_TOTRANSAMOUNT: return "TOTRANSAMOUNT";
             case COL_REPEATS: return "REPEATS";
             case COL_NEXTOCCURRENCEDATE: return "NEXTOCCURRENCEDATE";
             case COL_NUMOCCURRENCES: return "NUMOCCURRENCES";
+            case COL_COLOR: return "COLOR";
             default: break;
         }
         
@@ -277,13 +277,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         else if ("TRANSACTIONNUMBER" == name) return COL_TRANSACTIONNUMBER;
         else if ("NOTES" == name) return COL_NOTES;
         else if ("CATEGID" == name) return COL_CATEGID;
-        else if ("SUBCATEGID" == name) return COL_SUBCATEGID;
         else if ("TRANSDATE" == name) return COL_TRANSDATE;
         else if ("FOLLOWUPID" == name) return COL_FOLLOWUPID;
         else if ("TOTRANSAMOUNT" == name) return COL_TOTRANSAMOUNT;
         else if ("REPEATS" == name) return COL_REPEATS;
         else if ("NEXTOCCURRENCEDATE" == name) return COL_NEXTOCCURRENCEDATE;
         else if ("NUMOCCURRENCES" == name) return COL_NUMOCCURRENCES;
+        else if ("COLOR" == name) return COL_COLOR;
 
         return COLUMN(-1);
     }
@@ -305,13 +305,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         wxString TRANSACTIONNUMBER;
         wxString NOTES;
         int CATEGID;
-        int SUBCATEGID;
         wxString TRANSDATE;
         int FOLLOWUPID;
         double TOTRANSAMOUNT;
         int REPEATS;
         wxString NEXTOCCURRENCEDATE;
         int NUMOCCURRENCES;
+        int COLOR;
 
         int id() const
         {
@@ -333,6 +333,28 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             return this->id() < r->id();
         }
 
+        bool equals(const Data* r) const
+        {
+            if(BDID != r->BDID) return false;
+            if(ACCOUNTID != r->ACCOUNTID) return false;
+            if(TOACCOUNTID != r->TOACCOUNTID) return false;
+            if(PAYEEID != r->PAYEEID) return false;
+            if(!TRANSCODE.IsSameAs(r->TRANSCODE)) return false;
+            if(TRANSAMOUNT != r->TRANSAMOUNT) return false;
+            if(!STATUS.IsSameAs(r->STATUS)) return false;
+            if(!TRANSACTIONNUMBER.IsSameAs(r->TRANSACTIONNUMBER)) return false;
+            if(!NOTES.IsSameAs(r->NOTES)) return false;
+            if(CATEGID != r->CATEGID) return false;
+            if(!TRANSDATE.IsSameAs(r->TRANSDATE)) return false;
+            if(FOLLOWUPID != r->FOLLOWUPID) return false;
+            if(TOTRANSAMOUNT != r->TOTRANSAMOUNT) return false;
+            if(REPEATS != r->REPEATS) return false;
+            if(!NEXTOCCURRENCEDATE.IsSameAs(r->NEXTOCCURRENCEDATE)) return false;
+            if(NUMOCCURRENCES != r->NUMOCCURRENCES) return false;
+            if(COLOR != r->COLOR) return false;
+            return true;
+        }
+        
         explicit Data(Self* table = 0) 
         {
             table_ = table;
@@ -343,11 +365,11 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             PAYEEID = -1;
             TRANSAMOUNT = 0.0;
             CATEGID = -1;
-            SUBCATEGID = -1;
             FOLLOWUPID = -1;
             TOTRANSAMOUNT = 0.0;
             REPEATS = -1;
             NUMOCCURRENCES = -1;
+            COLOR = -1;
         }
 
         explicit Data(wxSQLite3ResultSet& q, Self* table = 0)
@@ -364,13 +386,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             TRANSACTIONNUMBER = q.GetString(7); // TRANSACTIONNUMBER
             NOTES = q.GetString(8); // NOTES
             CATEGID = q.GetInt(9); // CATEGID
-            SUBCATEGID = q.GetInt(10); // SUBCATEGID
-            TRANSDATE = q.GetString(11); // TRANSDATE
-            FOLLOWUPID = q.GetInt(12); // FOLLOWUPID
-            TOTRANSAMOUNT = q.GetDouble(13); // TOTRANSAMOUNT
-            REPEATS = q.GetInt(14); // REPEATS
-            NEXTOCCURRENCEDATE = q.GetString(15); // NEXTOCCURRENCEDATE
-            NUMOCCURRENCES = q.GetInt(16); // NUMOCCURRENCES
+            TRANSDATE = q.GetString(10); // TRANSDATE
+            FOLLOWUPID = q.GetInt(11); // FOLLOWUPID
+            TOTRANSAMOUNT = q.GetDouble(12); // TOTRANSAMOUNT
+            REPEATS = q.GetInt(13); // REPEATS
+            NEXTOCCURRENCEDATE = q.GetString(14); // NEXTOCCURRENCEDATE
+            NUMOCCURRENCES = q.GetInt(15); // NUMOCCURRENCES
+            COLOR = q.GetInt(16); // COLOR
         }
 
         Data& operator=(const Data& other)
@@ -387,13 +409,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             TRANSACTIONNUMBER = other.TRANSACTIONNUMBER;
             NOTES = other.NOTES;
             CATEGID = other.CATEGID;
-            SUBCATEGID = other.SUBCATEGID;
             TRANSDATE = other.TRANSDATE;
             FOLLOWUPID = other.FOLLOWUPID;
             TOTRANSAMOUNT = other.TOTRANSAMOUNT;
             REPEATS = other.REPEATS;
             NEXTOCCURRENCEDATE = other.NEXTOCCURRENCEDATE;
             NUMOCCURRENCES = other.NUMOCCURRENCES;
+            COLOR = other.COLOR;
             return *this;
         }
 
@@ -453,11 +475,6 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             return this->CATEGID == in.v_;
         }
 
-        bool match(const Self::SUBCATEGID &in) const
-        {
-            return this->SUBCATEGID == in.v_;
-        }
-
         bool match(const Self::TRANSDATE &in) const
         {
             return this->TRANSDATE.CmpNoCase(in.v_) == 0;
@@ -486,6 +503,11 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         bool match(const Self::NUMOCCURRENCES &in) const
         {
             return this->NUMOCCURRENCES == in.v_;
+        }
+
+        bool match(const Self::COLOR &in) const
+        {
+            return this->COLOR == in.v_;
         }
 
         // Return the data record as a json string
@@ -524,8 +546,6 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             json_writer.String(this->NOTES.utf8_str());
             json_writer.Key("CATEGID");
             json_writer.Int(this->CATEGID);
-            json_writer.Key("SUBCATEGID");
-            json_writer.Int(this->SUBCATEGID);
             json_writer.Key("TRANSDATE");
             json_writer.String(this->TRANSDATE.utf8_str());
             json_writer.Key("FOLLOWUPID");
@@ -538,6 +558,8 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             json_writer.String(this->NEXTOCCURRENCEDATE.utf8_str());
             json_writer.Key("NUMOCCURRENCES");
             json_writer.Int(this->NUMOCCURRENCES);
+            json_writer.Key("COLOR");
+            json_writer.Int(this->COLOR);
         }
 
         row_t to_row_t() const
@@ -553,13 +575,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             row(L"TRANSACTIONNUMBER") = TRANSACTIONNUMBER;
             row(L"NOTES") = NOTES;
             row(L"CATEGID") = CATEGID;
-            row(L"SUBCATEGID") = SUBCATEGID;
             row(L"TRANSDATE") = TRANSDATE;
             row(L"FOLLOWUPID") = FOLLOWUPID;
             row(L"TOTRANSAMOUNT") = TOTRANSAMOUNT;
             row(L"REPEATS") = REPEATS;
             row(L"NEXTOCCURRENCEDATE") = NEXTOCCURRENCEDATE;
             row(L"NUMOCCURRENCES") = NUMOCCURRENCES;
+            row(L"COLOR") = COLOR;
             return row;
         }
 
@@ -575,13 +597,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             t(L"TRANSACTIONNUMBER") = TRANSACTIONNUMBER;
             t(L"NOTES") = NOTES;
             t(L"CATEGID") = CATEGID;
-            t(L"SUBCATEGID") = SUBCATEGID;
             t(L"TRANSDATE") = TRANSDATE;
             t(L"FOLLOWUPID") = FOLLOWUPID;
             t(L"TOTRANSAMOUNT") = TOTRANSAMOUNT;
             t(L"REPEATS") = REPEATS;
             t(L"NEXTOCCURRENCEDATE") = NEXTOCCURRENCEDATE;
             t(L"NUMOCCURRENCES") = NUMOCCURRENCES;
+            t(L"COLOR") = COLOR;
         }
 
         /** Save the record instance in memory to the database. */
@@ -627,7 +649,7 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
 
     DB_Table_BILLSDEPOSITS_V1() : fake_(new Data())
     {
-        query_ = "SELECT BDID, ACCOUNTID, TOACCOUNTID, PAYEEID, TRANSCODE, TRANSAMOUNT, STATUS, TRANSACTIONNUMBER, NOTES, CATEGID, SUBCATEGID, TRANSDATE, FOLLOWUPID, TOTRANSAMOUNT, REPEATS, NEXTOCCURRENCEDATE, NUMOCCURRENCES FROM BILLSDEPOSITS_V1 ";
+        query_ = "SELECT BDID, ACCOUNTID, TOACCOUNTID, PAYEEID, TRANSCODE, TRANSAMOUNT, STATUS, TRANSACTIONNUMBER, NOTES, CATEGID, TRANSDATE, FOLLOWUPID, TOTRANSAMOUNT, REPEATS, NEXTOCCURRENCEDATE, NUMOCCURRENCES, COLOR FROM BILLSDEPOSITS_V1 ";
     }
 
     /** Create a new Data record and add to memory table (cache)*/
@@ -657,11 +679,11 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
         wxString sql = wxEmptyString;
         if (entity->id() <= 0) //  new & insert
         {
-            sql = "INSERT INTO BILLSDEPOSITS_V1(ACCOUNTID, TOACCOUNTID, PAYEEID, TRANSCODE, TRANSAMOUNT, STATUS, TRANSACTIONNUMBER, NOTES, CATEGID, SUBCATEGID, TRANSDATE, FOLLOWUPID, TOTRANSAMOUNT, REPEATS, NEXTOCCURRENCEDATE, NUMOCCURRENCES) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            sql = "INSERT INTO BILLSDEPOSITS_V1(ACCOUNTID, TOACCOUNTID, PAYEEID, TRANSCODE, TRANSAMOUNT, STATUS, TRANSACTIONNUMBER, NOTES, CATEGID, TRANSDATE, FOLLOWUPID, TOTRANSAMOUNT, REPEATS, NEXTOCCURRENCEDATE, NUMOCCURRENCES, COLOR) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         }
         else
         {
-            sql = "UPDATE BILLSDEPOSITS_V1 SET ACCOUNTID = ?, TOACCOUNTID = ?, PAYEEID = ?, TRANSCODE = ?, TRANSAMOUNT = ?, STATUS = ?, TRANSACTIONNUMBER = ?, NOTES = ?, CATEGID = ?, SUBCATEGID = ?, TRANSDATE = ?, FOLLOWUPID = ?, TOTRANSAMOUNT = ?, REPEATS = ?, NEXTOCCURRENCEDATE = ?, NUMOCCURRENCES = ? WHERE BDID = ?";
+            sql = "UPDATE BILLSDEPOSITS_V1 SET ACCOUNTID = ?, TOACCOUNTID = ?, PAYEEID = ?, TRANSCODE = ?, TRANSAMOUNT = ?, STATUS = ?, TRANSACTIONNUMBER = ?, NOTES = ?, CATEGID = ?, TRANSDATE = ?, FOLLOWUPID = ?, TOTRANSAMOUNT = ?, REPEATS = ?, NEXTOCCURRENCEDATE = ?, NUMOCCURRENCES = ?, COLOR = ? WHERE BDID = ?";
         }
 
         try
@@ -677,13 +699,13 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
             stmt.Bind(7, entity->TRANSACTIONNUMBER);
             stmt.Bind(8, entity->NOTES);
             stmt.Bind(9, entity->CATEGID);
-            stmt.Bind(10, entity->SUBCATEGID);
-            stmt.Bind(11, entity->TRANSDATE);
-            stmt.Bind(12, entity->FOLLOWUPID);
-            stmt.Bind(13, entity->TOTRANSAMOUNT);
-            stmt.Bind(14, entity->REPEATS);
-            stmt.Bind(15, entity->NEXTOCCURRENCEDATE);
-            stmt.Bind(16, entity->NUMOCCURRENCES);
+            stmt.Bind(10, entity->TRANSDATE);
+            stmt.Bind(11, entity->FOLLOWUPID);
+            stmt.Bind(12, entity->TOTRANSAMOUNT);
+            stmt.Bind(13, entity->REPEATS);
+            stmt.Bind(14, entity->NEXTOCCURRENCEDATE);
+            stmt.Bind(15, entity->NUMOCCURRENCES);
+            stmt.Bind(16, entity->COLOR);
             if (entity->id() > 0)
                 stmt.Bind(17, entity->BDID);
 
@@ -815,6 +837,44 @@ struct DB_Table_BILLSDEPOSITS_V1 : public DB_Table
                 entity = new Self::Data(q, this);
                 cache_.push_back(entity);
                 index_by_id_.insert(std::make_pair(id, entity));
+            }
+            stmt.Finalize();
+        }
+        catch(const wxSQLite3Exception &e) 
+        { 
+            wxLogError("%s: Exception %s", this->name().utf8_str(), e.GetMessage().utf8_str());
+        }
+        
+        if (!entity) 
+        {
+            entity = this->fake_;
+            // wxLogError("%s: %d not found", this->name().utf8_str(), id);
+        }
+ 
+        return entity;
+    }
+    /**
+    * Search the database for the data record, bypassing the cache.
+    */
+    Self::Data* get_record(int id, wxSQLite3Database* db)
+    {
+        if (id <= 0) 
+        {
+            ++ skip_;
+            return 0;
+        }
+
+        Self::Data* entity = 0;
+        wxString where = wxString::Format(" WHERE %s = ?", PRIMARY::name().utf8_str());
+        try
+        {
+            wxSQLite3Statement stmt = db->PrepareStatement(this->query() + where);
+            stmt.Bind(1, id);
+
+            wxSQLite3ResultSet q = stmt.ExecuteQuery();
+            if(q.NextRow())
+            {
+                entity = new Self::Data(q, this);
             }
             stmt.Finalize();
         }

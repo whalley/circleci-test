@@ -1,7 +1,7 @@
 /*******************************************************
 Copyright (C) 2014 Gabriele-V
 Copyright (C) 2015, 2016, 2020, 2022 Nikolay Akimov
-Copyright (C) 2022 Mark Whalley (mark@ipx.co.uk)
+Copyright (C) 2022, 2023 Mark Whalley (mark@ipx.co.uk)
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,16 +23,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "images_list.h"
 #include "mmex.h"
 #include "paths.h"
+#include "tagdialog.h"
 #include "util.h"
 
 #include "model/Model_Account.h"
 #include "model/Model_Setting.h"
 
+#include "wx/graphics.h"
+#include <wx/renderer.h>
 #include <wx/richtooltip.h>
 
 //------- Pop-up calendar, currently only used for MacOS only
 // See: https://github.com/moneymanagerex/moneymanagerex/issues/3139
 
+#include "wx/dcbuffer.h"
 #include "wx/popupwin.h"
 #include "wx/spinctrl.h"
 
@@ -47,21 +51,25 @@ public:
 
 private:
     mmDatePickerCtrl* m_datePicker;
-    void OnDateSelected( wxCalendarEvent& event);
+    void OnDateSelected(wxCalendarEvent& event);
+    void OnEndSelection(wxCalendarEvent& event);
     wxDECLARE_ABSTRACT_CLASS(mmCalendarPopup);
 };
 
-wxIMPLEMENT_CLASS(mmCalendarPopup,wxPopupTransientWindow);
+wxIMPLEMENT_CLASS(mmCalendarPopup, wxPopupTransientWindow);
 
 mmCalendarPopup::mmCalendarPopup( wxWindow *parent, mmDatePickerCtrl* datePicker)
-                     : wxPopupTransientWindow(parent,
-                                              wxBORDER_NONE)
-                    , m_datePicker(datePicker)
+    : wxPopupTransientWindow(parent,
+        wxBORDER_NONE)
+    , m_datePicker(datePicker)
 {
     wxWindow* panel = new wxWindow(this, wxID_ANY);
 
-    wxCalendarCtrl* m_calendarCtrl = new wxCalendarCtrl(panel, wxID_ANY, datePicker->GetValue());
+    wxCalendarCtrl* m_calendarCtrl = new wxCalendarCtrl(panel, wxID_ANY, datePicker->GetValue()
+        , wxDefaultPosition, wxDefaultSize
+        , wxCAL_SEQUENTIAL_MONTH_SELECTION | wxCAL_SHOW_HOLIDAYS | wxCAL_SHOW_SURROUNDING_WEEKS);
     m_calendarCtrl->Bind(wxEVT_CALENDAR_SEL_CHANGED, &mmCalendarPopup::OnDateSelected, this);
+    m_calendarCtrl->Bind(wxEVT_CALENDAR_DOUBLECLICKED, &mmCalendarPopup::OnEndSelection, this);
 
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_calendarCtrl, 0, wxALL, 5);
@@ -79,14 +87,24 @@ mmCalendarPopup::~mmCalendarPopup()
 void mmCalendarPopup::OnDateSelected(wxCalendarEvent& event)
 {
     m_datePicker->SetValue(event.GetDate());
+    wxDateEvent evt(m_datePicker, m_datePicker->GetValue(), wxEVT_DATE_CHANGED);
+    m_datePicker->GetEventHandler()->AddPendingEvent(evt);
+}
+
+void mmCalendarPopup::OnEndSelection(wxCalendarEvent& event)
+{
+    m_datePicker->SetValue(event.GetDate());
+    this->Dismiss();
+    wxDateEvent evt(m_datePicker, m_datePicker->GetValue(), wxEVT_DATE_CHANGED);
+    m_datePicker->GetEventHandler()->AddPendingEvent(evt);
 }
 
 //------------
 
 wxBEGIN_EVENT_TABLE(mmComboBox, wxComboBox)
-    EVT_SET_FOCUS(mmComboBox::OnSetFocus)
-    EVT_COMBOBOX_DROPDOWN(wxID_ANY, mmComboBox::OnDropDown)
-    EVT_TEXT(wxID_ANY, mmComboBox::OnTextUpdated)
+EVT_SET_FOCUS(mmComboBox::OnSetFocus)
+EVT_COMBOBOX_DROPDOWN(wxID_ANY, mmComboBox::OnDropDown)
+EVT_TEXT(wxID_ANY, mmComboBox::OnTextUpdated)
 wxEND_EVENT_TABLE()
 
 mmComboBox::mmComboBox(wxWindow* parent, wxWindowID id, wxSize size)
@@ -94,6 +112,7 @@ mmComboBox::mmComboBox(wxWindow* parent, wxWindowID id, wxSize size)
     , is_initialized_(false)
 {
     Bind(wxEVT_CHAR_HOOK, &mmComboBox::OnKeyPressed, this);
+    Bind(wxEVT_CHAR, &mmComboBox::OnKeyPressed, this);
 }
 
 void mmComboBox::OnDropDown(wxCommandEvent& event)
@@ -106,20 +125,22 @@ void mmComboBox::OnSetFocus(wxFocusEvent& event)
 {
     if (!is_initialized_)
     {
-        wxArrayString auto_complete;
-        for (const auto& item : all_elements_) {
-            auto_complete.Add(item.first);
-        }
-        auto_complete.Sort(CaseInsensitiveLocaleCmp);
+       wxArrayString auto_complete;
+       for (const auto& item : all_elements_) {
+           auto_complete.Add(item.first);
+       }
+       auto_complete.Sort(CaseInsensitiveLocaleCmp);
 
         this->AutoComplete(auto_complete);
         if (!auto_complete.empty()) {
-            this->Insert(auto_complete, 0);
+            wxString selection = GetValue();
+            Set(auto_complete);
+            if (!selection.IsEmpty()) SetStringSelection(selection);
         }
         if (auto_complete.GetCount() == 1) {
             Select(0);
         }
-        is_initialized_ = true;
+        is_initialized_ = true;   
     }
     event.Skip();
 }
@@ -128,7 +149,7 @@ void mmComboBox::mmDoReInitialize()
 {
     this->Clear();
     init();
-    is_initialized_ = false; 
+    is_initialized_ = false;
     wxFocusEvent evt(wxEVT_SET_FOCUS);
     OnSetFocus(evt);
 }
@@ -142,8 +163,8 @@ void mmComboBox::mmSetId(int id)
         ChangeValue(result->first);
 }
 
-int mmComboBox::mmGetId() const 
-{ 
+int mmComboBox::mmGetId() const
+{
     auto text = GetValue();
     if (all_elements_.count(text) == 1)
         return all_elements_.at(text);
@@ -158,15 +179,15 @@ void mmComboBox::OnTextUpdated(wxCommandEvent& event)
 #if defined (__WXMAC__)
     // Filtering the combobox as the user types because on Mac autocomplete function doesn't work
     // PLEASE DO NOT REMOVE!!
-    if (typedText.IsEmpty() || (this->GetSelection() == -1))
+    if ((is_initialized_) && (typedText.IsEmpty() || (this->GetSelection() == -1)))
     {
         this->Clear();
 
         for (auto& entry : all_elements_)
         {
-            if (entry.first.Lower().Matches(typedText.Lower().Append("*")))
+            if (entry.first.Lower().Matches(typedText.Lower().Prepend("*").Append("*")))
                 this->Append(entry.first);
-        }
+            }
 
         this->ChangeValue(typedText);
         this->SetInsertionPointEnd();
@@ -202,8 +223,18 @@ void mmComboBox::OnKeyPressed(wxKeyEvent& event)
                 break;
             }
         }
+        event.Skip();
     }
-    event.Skip();
+    else if (event.GetId() == mmID_CATEGORY && event.GetUnicodeKey() == ':')
+    {
+        this->SetEvtHandlerEnabled(false);
+        ChangeValue(text.Trim().Append(Model_Infotable::instance().GetStringInfo("CATEG_DELIMITER", ":")));
+        SetInsertionPointEnd();
+        this->SetEvtHandlerEnabled(true);
+    }
+    else {
+        event.Skip();
+    }
 }
 
 const wxString mmComboBox::mmGetPattern() const
@@ -240,25 +271,46 @@ void mmComboBoxAccount::init()
 // accountID = always include this account even if it would have been excluded as closed
 // excludeClosed = set to true if closed accounts should be excluded
 mmComboBoxAccount::mmComboBoxAccount(wxWindow* parent, wxWindowID id
-                    , wxSize size, int accountID, bool excludeClosed)
+    , wxSize size, int accountID, bool excludeClosed)
     : mmComboBox(parent, id, size)
     , excludeClosed_(excludeClosed)
     , accountID_(accountID)
 {
     init();
+    wxArrayString choices;
+    for (const auto& item : all_elements_) {
+        choices.Add(item.first);
+    }
+    parent->SetEvtHandlerEnabled(false);
+    Set(choices);
+    parent->SetEvtHandlerEnabled(true);
 }
 
 /* --------------------------------------------------------- */
 
 void mmComboBoxPayee::init()
 {
-    all_elements_ = Model_Payee::instance().all_payees();
+    all_elements_ = Model_Payee::instance().all_payees(excludeHidden_);
+    if (payeeID_ > -1)
+        all_elements_[Model_Payee::get_payee_name(payeeID_)] = payeeID_;
 }
 
-mmComboBoxPayee::mmComboBoxPayee(wxWindow* parent, wxWindowID id, wxSize size)
+// payeeID = always include this payee even if it would have been excluded as inactive
+// excludeHidden = set to true if inactive payees should be excluded
+mmComboBoxPayee::mmComboBoxPayee(wxWindow* parent, wxWindowID id
+                    , wxSize size, int payeeID, bool excludeHidden)
     : mmComboBox(parent, id, size)
+    , excludeHidden_(excludeHidden)
+    , payeeID_(payeeID)
 {
     init();
+    wxArrayString choices;
+    for (const auto& item : all_elements_) {
+        choices.Add(item.first);
+    }
+    parent->SetEvtHandlerEnabled(false);
+    Set(choices);
+    parent->SetEvtHandlerEnabled(true);
 }
 
 void mmComboBoxUsedPayee::init()
@@ -270,6 +322,13 @@ mmComboBoxUsedPayee::mmComboBoxUsedPayee(wxWindow* parent, wxWindowID id, wxSize
     : mmComboBox(parent, id, size)
 {
     init();
+    wxArrayString choices;
+    for (const auto& item : all_elements_) {
+        choices.Add(item.first);
+    }
+    parent->SetEvtHandlerEnabled(false);
+    Set(choices);
+    parent->SetEvtHandlerEnabled(true);
 }
 
 /* --------------------------------------------------------- */
@@ -283,6 +342,13 @@ mmComboBoxCurrency::mmComboBoxCurrency(wxWindow* parent, wxWindowID id, wxSize s
     : mmComboBox(parent, id, size)
 {
     init();
+    wxArrayString choices;
+    for (const auto& item : all_elements_) {
+        choices.Add(item.first);
+    }
+    parent->SetEvtHandlerEnabled(false);
+    Set(choices);
+    parent->SetEvtHandlerEnabled(true);
 }
 
 /* --------------------------------------------------------- */
@@ -290,33 +356,39 @@ void mmComboBoxCategory::init()
 {
     int i = 0;
     all_elements_.clear();
-    all_categories_ = Model_Category::instance().all_categories();
+    all_categories_ = Model_Category::instance().all_categories(excludeHidden_);
+    if (catID_ > -1)
+        all_categories_.insert(std::make_pair(Model_Category::full_name(catID_)
+            , catID_));
     for (const auto& item : all_categories_)
     {
         all_elements_[item.first] = i++;
     }
 }
 
-mmComboBoxCategory::mmComboBoxCategory(wxWindow* parent, wxWindowID id, wxSize size)
+// catID/subCatID = always include this category even if it would have been excluded as inactive
+// excludeHidden = set to true if hidden categories should be excluded
+mmComboBoxCategory::mmComboBoxCategory(wxWindow* parent, wxWindowID id
+                    , wxSize size, int catID, bool excludeHidden)
     : mmComboBox(parent, id, size)
+    , excludeHidden_(excludeHidden)
+    , catID_(catID)
 {
     init();
+    wxArrayString choices;
+    for (const auto& item : all_elements_) {
+        choices.Add(item.first);
+    }
+    parent->SetEvtHandlerEnabled(false);
+    Set(choices);
+    parent->SetEvtHandlerEnabled(true);
 }
 
 int mmComboBoxCategory::mmGetCategoryId() const
 {
     auto text = GetValue();
     if (all_categories_.count(text) == 1)
-        return all_categories_.at(text).first;
-    else
-        return -1;
-}
-
-int mmComboBoxCategory::mmGetSubcategoryId() const
-{
-    auto text = GetValue();
-    if (all_categories_.count(text) == 1)
-        return all_categories_.at(text).second;
+        return all_categories_.at(text);
     else
         return -1;
 }
@@ -336,8 +408,8 @@ mmComboBoxCustom::mmComboBoxCustom(wxWindow* parent, wxArrayString& a, wxWindowI
 /* --------------------------------------------------------- */
 
 wxBEGIN_EVENT_TABLE(mmDatePickerCtrl, wxDatePickerCtrl)
-    EVT_DATE_CHANGED(wxID_ANY, mmDatePickerCtrl::OnDateChanged)
-    EVT_SPIN(wxID_ANY, mmDatePickerCtrl::OnDateSpin)
+EVT_DATE_CHANGED(wxID_ANY, mmDatePickerCtrl::OnDateChanged)
+EVT_SPIN(wxID_ANY, mmDatePickerCtrl::OnDateSpin)
 wxEND_EVENT_TABLE()
 
 mmDatePickerCtrl::mmDatePickerCtrl(wxWindow* parent, wxWindowID id, wxDateTime dt, wxPoint pos, wxSize size, long style)
@@ -346,8 +418,8 @@ mmDatePickerCtrl::mmDatePickerCtrl(wxWindow* parent, wxWindowID id, wxDateTime d
     , itemStaticTextWeek_(nullptr)
     , spinButton_(nullptr)
 {
-// The standard date control for MacOS does not have a date picker so make one available when right-click
-// over the date field.
+    // The standard date control for MacOS does not have a date picker so make one available when right-click
+    // over the date field.
 #if defined (__WXMAC__)
     Bind(wxEVT_RIGHT_DOWN, &mmDatePickerCtrl::OnCalendar, this);
 #endif
@@ -362,14 +434,14 @@ mmDatePickerCtrl::~mmDatePickerCtrl()
 }
 
 wxStaticText* mmDatePickerCtrl::getTextWeek()
-{ 
+{
     if (!itemStaticTextWeek_)
     {
         //Text field for name of day of the week
         wxSize WeekDayNameMaxSize(wxDefaultSize);
         for (wxDateTime::WeekDay d = wxDateTime::Sun;
-                d != wxDateTime::Inv_WeekDay;
-                d = wxDateTime::WeekDay(d+1))
+            d != wxDateTime::Inv_WeekDay;
+            d = wxDateTime::WeekDay(d+1))
             WeekDayNameMaxSize.IncTo(GetTextExtent(
                 wxGetTranslation(wxDateTime::GetEnglishWeekDayName(d))+ " "));
         WeekDayNameMaxSize.SetHeight(-1);
@@ -378,25 +450,24 @@ wxStaticText* mmDatePickerCtrl::getTextWeek()
         wxDateEvent dateEvent(this, this->GetValue(), wxEVT_DATE_CHANGED);
         OnDateChanged(dateEvent);
     }
-    return itemStaticTextWeek_; 
+    return itemStaticTextWeek_;
 }
 
 wxSpinButton* mmDatePickerCtrl::getSpinButton()
-{ 
+{
     if (!spinButton_)
     {
         spinButton_ = new wxSpinButton(this->GetParent(), wxID_ANY
             , wxDefaultPosition, wxSize(-1, this->GetSize().GetHeight())
             , wxSP_VERTICAL | wxSP_ARROW_KEYS | wxSP_WRAP);
         spinButton_->Connect(wxID_ANY, wxEVT_SPIN
-        , wxSpinEventHandler(mmDatePickerCtrl::OnDateSpin), nullptr, this);
+            , wxSpinEventHandler(mmDatePickerCtrl::OnDateSpin), nullptr, this);
         spinButton_->SetRange(-32768, 32768);
-        mmToolTip(spinButton_, _("Retard or advance the date"));
     }
-    return spinButton_; 
+    return spinButton_;
 }
 
-void mmDatePickerCtrl::SetValue(const wxDateTime &dt)	
+void mmDatePickerCtrl::SetValue(const wxDateTime &dt)
 {
     wxDatePickerCtrl::SetValue(dt);
     //trigger date change event
@@ -414,7 +485,7 @@ bool mmDatePickerCtrl::Enable(bool state)
 
 wxBoxSizer* mmDatePickerCtrl::mmGetLayout()
 {
-    wxBoxSizer* date_sizer = new wxBoxSizer(wxHORIZONTAL); 
+    wxBoxSizer* date_sizer = new wxBoxSizer(wxHORIZONTAL);
     date_sizer->Add(this, g_flagsH);
 #if defined(__WXMSW__) || defined(__WXGTK__)
     date_sizer->Add(this->getSpinButton(), g_flagsH);
@@ -425,7 +496,7 @@ wxBoxSizer* mmDatePickerCtrl::mmGetLayout()
 }
 
 void mmDatePickerCtrl::OnCalendar(wxMouseEvent& event)
-{  
+{
     mmCalendarPopup* m_simplePopup = new mmCalendarPopup( parent_, this );
 
     // make sure we correctly position the popup below the date
@@ -439,22 +510,25 @@ void mmDatePickerCtrl::OnCalendar(wxMouseEvent& event)
 
 void mmDatePickerCtrl::OnDateChanged(wxDateEvent& event)
 {
-    if (!itemStaticTextWeek_)
-        return;
-    
-    wxDateTime dt = event.GetDate();
-    itemStaticTextWeek_->SetLabelText(wxGetTranslation(dt.GetEnglishWeekDayName(dt.GetWeekDay())));
+    if (itemStaticTextWeek_)
+    {
+        wxDateTime dt = event.GetDate();
+        itemStaticTextWeek_->SetLabelText(wxGetTranslation(dt.GetEnglishWeekDayName(dt.GetWeekDay())));
+    }
+    event.Skip();
 }
 
-void mmDatePickerCtrl::OnDateSpin(wxSpinEvent& WXUNUSED(event))
+void mmDatePickerCtrl::OnDateSpin(wxSpinEvent& event)
 {
-    if (!spinButton_)
-        return;
-        
-    wxDateTime date = this->GetValue();
-    date = date.Add(wxDateSpan::Days(spinButton_->GetValue()));
-    this->SetValue(date);
-    spinButton_->SetValue(0);
+    if (spinButton_)
+    {
+        wxDateTime date = this->GetValue();
+        date = date.Add(wxDateSpan::Days(spinButton_->GetValue()));
+        this->SetValue(date);
+        wxDateEvent evt(this, this->GetValue(), wxEVT_DATE_CHANGED);
+        this->GetEventHandler()->AddPendingEvent(evt);
+        spinButton_->SetValue(0);
+    }
 }
 
 /*/////////////////////////////////////////////////////////////*/
@@ -473,6 +547,7 @@ void mmColorButton::OnMenuSelected(wxCommandEvent& event)
 {
     m_color_value = event.GetId() - wxID_HIGHEST;
     SetBackgroundColour(getUDColour(m_color_value));
+    SetForegroundColour(*bestFontColour(getUDColour(m_color_value)));
     if (GetSize().GetX() > 40)
     {
         if (m_color_value <= 0) {
@@ -496,14 +571,15 @@ void mmColorButton::OnColourButton(wxCommandEvent& event)
         menuItem = new wxMenuItem(&mainMenu, wxID_HIGHEST + i, wxString::Format(_("Color #%i"), i));
 #ifdef __WXMSW__
         menuItem->SetBackgroundColour(getUDColour(i)); //only available for the wxMSW port.
+        menuItem->SetTextColour(*bestFontColour(getUDColour(i)));
 #endif
-        wxBitmap bitmap(mmBitmap(png::EMPTY, mmBitmapButtonSize).GetSize());
+        wxBitmap bitmap(mmBitmapBundle(png::EMPTY, mmBitmapButtonSize).GetDefaultSize());
         wxMemoryDC memoryDC(bitmap);
         wxRect rect(memoryDC.GetSize());
 
         memoryDC.SetBackground(wxBrush(getUDColour(i)));
         memoryDC.Clear();
-        memoryDC.DrawBitmap(mmBitmap(png::EMPTY, mmBitmapButtonSize), 0, 0, true);
+        memoryDC.DrawBitmap(mmBitmapBundle(png::EMPTY, mmBitmapButtonSize).GetBitmap(wxDefaultSize), 0, 0, true);
         memoryDC.SelectObject(wxNullBitmap);
         menuItem->SetBitmap(bitmap);
 
@@ -559,24 +635,6 @@ void mmChoiceAmountMask::SetDecimalChar(const wxString& str)
 
 /*/////////////////////////////////////////////////////////////*/
 
-mmSingleChoiceDialog::mmSingleChoiceDialog()
-{
-}
-mmSingleChoiceDialog::mmSingleChoiceDialog(wxWindow *parent, const wxString& message,
-    const wxString& caption, const wxArrayString& choices)
-{
-    wxSingleChoiceDialog::Create(parent, message, caption, choices);
-}
-mmSingleChoiceDialog::mmSingleChoiceDialog(wxWindow* parent, const wxString& message,
-    const wxString& caption, const Model_Account::Data_Set& accounts)
-{
-    wxArrayString choices;
-    for (const auto & item : accounts) choices.Add(item.ACCOUNTNAME);
-    wxSingleChoiceDialog::Create(parent, message, caption, choices);
-}
-
-/* --------------------------------------------------------- */
-
 mmDialogComboBoxAutocomplete::mmDialogComboBoxAutocomplete()
 {
 }
@@ -617,8 +675,6 @@ bool mmDialogComboBoxAutocomplete::Create(wxWindow* parent, wxWindowID id,
     Sizer->Add(headerText, flags);
     Sizer->AddSpacer(15);
     cbText_ = new mmComboBoxCustom(this, m_choices);
-    cbText_->SetFocus();
-    cbText_->ChangeValue(m_default_str);
     cbText_->SetMinSize(wxSize(150, -1));
     Sizer->Add(cbText_, wxSizerFlags().Border(wxLEFT | wxRIGHT, 15).Expand());
     Sizer->AddSpacer(20);
@@ -626,6 +682,9 @@ bool mmDialogComboBoxAutocomplete::Create(wxWindow* parent, wxWindowID id,
     Sizer->Add(Button, flags);
     Sizer->AddSpacer(10);
 
+    cbText_->SetFocus();
+    cbText_->ChangeValue(m_default_str);
+    cbText_->SelectAll();
     Centre();
     Fit();
     return true;
@@ -732,14 +791,9 @@ void mmErrorDialogs::MessageInvalid(wxWindow *parent, const wxString &message)
     MessageError(parent, msg, _("Invalid Entry"));
 }
 
-void mmErrorDialogs::InvalidCategory(wxWindow *win, bool simple)
+void mmErrorDialogs::InvalidCategory(wxWindow *win)
 {
-    const wxString& msg = simple
-        ? _("Please use this button for category selection.")
-        : _("Please use this button for category selection\n"
-            "or use the 'Split' checkbox for multiple categories.");
-
-    ToolTip4Object(win, msg + "\n", _("Invalid Category"), wxICON_ERROR);
+    ToolTip4Object(win, _("Please select an existing category"), _("Invalid Category"), wxICON_ERROR);
 }
 
 void mmErrorDialogs::InvalidFile(wxWindow *object, bool open)
@@ -773,7 +827,7 @@ void mmErrorDialogs::InvalidPayee(wxWindow *object)
 {
     const wxString& errorHeader = _("Invalid Payee");
     const wxString& errorMessage = _("Please type in a new payee,\n"
-            "or make a selection using the dropdown button.")
+        "or make a selection using the dropdown button.")
         + "\n";
     ToolTip4Object(object, errorMessage, errorHeader, wxICON_ERROR);
 }
@@ -798,7 +852,7 @@ void mmErrorDialogs::InvalidSymbol(wxTextCtrl *textBox, bool alreadyexist)
         errorMessage = _("Already exist!");
     else
         errorMessage = _("Please type in a non empty symbol.");
- 
+
     ToolTip4Object(textBox, errorMessage, errorHeader, wxICON_ERROR);
 }
 
@@ -817,7 +871,7 @@ mmMultiChoiceDialog::mmMultiChoiceDialog()
 }
 
 mmMultiChoiceDialog::mmMultiChoiceDialog(
-      wxWindow* parent
+    wxWindow* parent
     , const wxString& message
     , const wxString& caption
     , const wxArrayString& items)
@@ -833,4 +887,701 @@ mmMultiChoiceDialog::mmMultiChoiceDialog(
     wxButton* ca = static_cast<wxButton*>(FindWindow(wxID_CANCEL));
     if (ca) ca->SetLabel(wxGetTranslation(g_CancelLabel));
     Fit();
+}
+
+/* --------------------------------------------------------- */
+
+mmSingleChoiceDialog::mmSingleChoiceDialog()
+{
+}
+mmSingleChoiceDialog::mmSingleChoiceDialog(wxWindow* parent, const wxString& message,
+    const wxString& caption, const wxArrayString& choices)
+{
+    if (parent) this->SetFont(parent->GetFont());
+    wxSingleChoiceDialog::Create(parent, message, caption, choices);
+    SetMinSize(wxSize(220, 384));
+    SetIcon(mmex::getProgramIcon());
+
+    wxButton* ok = static_cast<wxButton*>(FindWindow(wxID_OK));
+    if (ok) ok->SetLabel(wxGetTranslation(g_OkLabel));
+    wxButton* ca = static_cast<wxButton*>(FindWindow(wxID_CANCEL));
+    if (ca) ca->SetLabel(wxGetTranslation(g_CancelLabel));
+    Fit();
+}
+mmSingleChoiceDialog::mmSingleChoiceDialog(wxWindow* parent, const wxString& message,
+    const wxString& caption, const Model_Account::Data_Set& accounts)
+{
+    if (parent) this->SetFont(parent->GetFont());
+    wxArrayString choices;
+    for (const auto& item : accounts) choices.Add(item.ACCOUNTNAME);
+    wxSingleChoiceDialog::Create(parent, message, caption, choices);
+    SetMinSize(wxSize(220, 384));
+    SetIcon(mmex::getProgramIcon());
+
+    wxButton* ok = static_cast<wxButton*>(FindWindow(wxID_OK));
+    if (ok) ok->SetLabel(wxGetTranslation(g_OkLabel));
+    wxButton* ca = static_cast<wxButton*>(FindWindow(wxID_CANCEL));
+    if (ca) ca->SetLabel(wxGetTranslation(g_CancelLabel));
+    Fit();
+}
+
+//------------
+mmTagTextCtrl::mmTagTextCtrl(wxWindow* parent, wxWindowID id,
+    bool operatorAllowed, const wxPoint& pos, const wxSize& size, long style)
+    : wxPanel(), operatorAllowed_(operatorAllowed)
+{
+#ifdef __WXMAC__
+    style |= wxBORDER_THEME;
+#else
+    style |= wxBORDER_NONE;
+#endif    
+    Create(parent, id, pos, size, style);
+    SetFont(parent->GetFont());
+    SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    wxBoxSizer* panel_sizer = new wxBoxSizer(wxHORIZONTAL);
+    wxBoxSizer* v_sizer = new wxBoxSizer(wxVERTICAL);
+    wxBoxSizer* h_sizer = new wxBoxSizer(wxHORIZONTAL);
+    textCtrl_ = new wxStyledTextCtrl(this, wxID_DEFAULT, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+    if (operatorAllowed_)
+        mmToolTip(textCtrl_,
+            _("Enter tags to search, optionally separated by the operators '&' and '|'.") + "\n" +
+            _("The default operator between consecutive tags is AND, use '|' to change the operator to OR.")
+        );
+    // Set options for the text ctrl
+    textCtrl_->SetLexer(wxSTC_LEX_NULL);
+    textCtrl_->SetWrapMode(wxSTC_WRAP_NONE);
+    textCtrl_->SetMarginWidth(1, 0);
+    //textCtrl_->SetExtraDescent(1);
+    textCtrl_->SetMarginSensitive(1, false);
+    textCtrl_->SetUseVerticalScrollBar(false);
+    textCtrl_->SetUseHorizontalScrollBar(false);
+    textCtrl_->AutoCompSetIgnoreCase(true);
+    textCtrl_->AutoCompSetCancelAtStart(true);
+    textCtrl_->AutoCompSetAutoHide(false);
+    textCtrl_->StyleSetFont(1, parent->GetFont());
+    textCtrl_->StyleSetBackground(1, wxColour(186, 226, 185));
+    textCtrl_->StyleSetForeground(1, *wxBLACK);
+    textCtrl_->StyleSetFont(0, parent->GetFont());
+    textCtrl_->StyleSetBackground(0, wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    textCtrl_->StyleSetForeground(0, wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOXTEXT));
+    textCtrl_->StyleSetBackground(wxSTC_STYLE_DEFAULT, wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    textCtrl_->StyleSetForeground(wxSTC_STYLE_DEFAULT, wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOXTEXT));
+    textCtrl_->SetCaretForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOXTEXT));
+    textCtrl_->SetMaxClientSize(wxSize(-1, textCtrl_->TextHeight(0)));
+    textCtrl_->SetWordChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,;:!?'\"()[]{}<>/\\|-_=+*&^%@#$~");
+
+    // Text ctrl event handlers
+    textCtrl_->Bind(wxEVT_CHAR, &mmTagTextCtrl::OnTextChanged, this);
+    textCtrl_->Bind(wxEVT_STC_CLIPBOARD_PASTE, &mmTagTextCtrl::OnPaste, this);
+    textCtrl_->Bind(wxEVT_PAINT, &mmTagTextCtrl::OnPaint, this);
+    Bind(wxEVT_PAINT, &mmTagTextCtrl::OnPaint, this);
+    textCtrl_->Bind(wxEVT_KILL_FOCUS, &mmTagTextCtrl::OnKillFocus, this);
+    textCtrl_->Bind(wxEVT_CHAR_HOOK, &mmTagTextCtrl::OnKeyPressed, this);
+    textCtrl_->Bind(wxEVT_STC_ZOOM, [this](wxStyledTextEvent& event) {
+        // Disable zoom
+        textCtrl_->SetEvtHandlerEnabled(false);
+        textCtrl_->SetZoom(0);
+        textCtrl_->SetEvtHandlerEnabled(true);
+    });
+  
+    h_sizer->Add(textCtrl_, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, 2);
+
+    // Dropdown button
+    int panelHeight = textCtrl_->TextHeight(0) + 8;
+
+#ifdef __WXMSW__
+    // On Windows draw the drop arrow and store the bitmap to be used in the paint override
+    wxWindowDC dc(this);
+    wxSize btnSize = wxRendererNative::Get().GetCollapseButtonSize(this, dc);
+    btnSize.SetWidth(btnSize.GetWidth() - 2);
+    btnSize.SetHeight(panelHeight - 3);
+    btn_dropdown_ = new wxBitmapButton(this, wxID_ANY, wxNullBitmap, wxPoint(-1, 1), btnSize, wxBORDER_NONE, wxDefaultValidator, "btn_dropdown_");
+    btn_dropdown_->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    btn_dropdown_->Bind(wxEVT_PAINT, &mmTagTextCtrl::OnPaintButton, this);
+
+    // Recreate the Native windows-style drop arrow
+    // Begin the image with a transparent background
+    wxImage img(btnSize);
+    img.InitAlpha();
+    unsigned char* alpha = img.GetAlpha();
+    memset(alpha, wxIMAGE_ALPHA_TRANSPARENT, img.GetWidth() * img.GetHeight());
+
+    dropArrow_ = wxBitmap(img);
+    // Normal wxDC doesn't play nice with an alpha channel in Windows
+    // so use a wxGraphicsContext to draw the image in the bitmap
+    wxGraphicsContext* gc = wxGraphicsContext::Create(dropArrow_);
+    gc->SetAntialiasMode(wxANTIALIAS_NONE);
+    int arrowX = (btnSize.GetWidth() - 8) / 2;
+    int arrowY = btnSize.GetHeight() / 2;
+    
+    wxPoint2DDouble ptstart[2] = {
+        wxPoint(arrowX, arrowY), // top L
+        wxPoint(arrowX + 7, arrowY), // top R
+    };
+    
+    wxPoint2DDouble ptend[2] = {
+        wxPoint(arrowX + 3, arrowY + 3), // bottom center L
+        wxPoint(arrowX + 4, arrowY + 3) // bottom center R
+    };
+    
+    wxPoint2DDouble sptstart[2] = {
+        wxPoint(arrowX, arrowY - 1), // shadow top L
+        wxPoint(arrowX + 7, arrowY - 1), // shadow top R
+    };
+    
+    wxPoint2DDouble sptend[2] = {
+        wxPoint(arrowX + 3, arrowY + 2), // shadow bottom center L
+        wxPoint(arrowX + 4, arrowY + 2) // shadow bottom center R
+    };
+    
+    wxPoint2DDouble lsptstart[2] = {
+        wxPoint(arrowX - 1, arrowY), // light shadow top L
+        wxPoint(arrowX + 8, arrowY), // light shadow top R
+    };
+    
+    wxPoint2DDouble lsptend[2] = {
+        wxPoint(arrowX + 3, arrowY + 4), // light shadow bottom center L
+        wxPoint(arrowX + 4, arrowY + 4) // light shadow bottom center R
+    };
+
+    // draw shadow
+    wxColour color = wxSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW);
+    color.SetRGBA(0xA6000000 | color.GetRGB());
+    gc->SetPen(color);
+    gc->StrokeLines(2, sptstart, sptend);
+
+    // draw triangle
+    color = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT);
+    color.SetRGBA(0xA6000000 | color.GetRGB());
+    gc->SetPen(color);
+    gc->StrokeLines(2, ptstart, ptend);
+
+    // draw light shadow
+    color = wxSystemSettings::GetColour(wxSYS_COLOUR_3DLIGHT);
+    color.SetRGBA(0xA6000000 | color.GetRGB());
+    gc->SetPen(color);
+    gc->StrokeLines(2, lsptstart, lsptend);
+
+    delete gc;
+
+    // Duplicate the image and adjust opacity to create the "inactive" drop arrow
+    wxImage inactiveImg(dropArrow_.ConvertToImage());
+    for (int i = 0; i < inactiveImg.GetWidth(); i++)
+        for (int j = 0; j < inactiveImg.GetHeight(); j++)
+            inactiveImg.SetAlpha(i, j, inactiveImg.GetAlpha(i, j) * 0.5);
+
+    dropArrowInactive_ = wxBitmap(inactiveImg);
+#else
+    // On Linux and macOS just draw a drop arrow bitmap for the button
+    wxSize btnSize = wxSize(panelHeight + 2, panelHeight);
+    btn_dropdown_ = new wxBitmapButton(this, wxID_ANY, wxNullBitmap, wxDefaultPosition, btnSize, wxBORDER_DEFAULT, wxDefaultValidator, "btn_dropdown_");
+
+    // Begin the image with a transparent background
+    wxImage img(btnSize);
+    img.InitAlpha();
+    unsigned char* alpha = img.GetAlpha();
+    memset(alpha, wxIMAGE_ALPHA_TRANSPARENT, img.GetWidth()* img.GetHeight());
+    dropArrow_ = wxBitmap(img);
+    // On Linux wxDC works fine with an alpha channel, so use a wxMemoryDC to draw right into the bitmap
+    wxMemoryDC memDC;
+    memDC.SelectObject(dropArrow_);
+    memDC.SetPen(wxPen(btn_dropdown_->GetForegroundColour()));
+    memDC.SetBrush(wxBrush(btn_dropdown_->GetForegroundColour()));
+
+    wxRect rect(GetClientRect());
+    rect.x += 8;
+    rect.y += 7;
+    // The generic drop arrow looks pretty close to the native GTK arrow
+    wxRendererNative::GetGeneric().DrawDropArrow(this, memDC, rect);
+
+    memDC.SelectObject(wxNullBitmap);
+    dropArrowInactive_ = dropArrow_;
+    btn_dropdown_->SetBitmap(dropArrow_);
+#endif
+
+    btn_dropdown_->Bind(wxEVT_BUTTON, &mmTagTextCtrl::OnDropDown, this);
+    btn_dropdown_->Bind(wxEVT_NAVIGATION_KEY, [this](wxNavigationKeyEvent& event) { textCtrl_->SetFocus(); });
+
+#ifndef __WXMAC__
+    // Event handlers for custom control painting in Windows & Linux
+    Bind(wxEVT_ENTER_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    Bind(wxEVT_LEAVE_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    textCtrl_->Bind(wxEVT_ENTER_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    textCtrl_->Bind(wxEVT_LEAVE_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    textCtrl_->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {textCtrl_->Refresh(); });
+    btn_dropdown_->Bind(wxEVT_LEAVE_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    btn_dropdown_->Bind(wxEVT_SET_FOCUS, &mmTagTextCtrl::OnFocusChange, this);
+    btn_dropdown_->Bind(wxEVT_ENTER_WINDOW, &mmTagTextCtrl::OnMouseCaptureChange, this);
+    btn_dropdown_->Bind(wxEVT_KILL_FOCUS, &mmTagTextCtrl::OnFocusChange, this);
+#endif
+
+    v_sizer->Add(h_sizer, 1, wxEXPAND, 0);
+    panel_sizer->Add(v_sizer, 1, wxEXPAND, 0);
+    panel_sizer->Add(btn_dropdown_, 0, wxEXPAND | wxALL, 0);
+
+    // Popup window
+    popupWindow_ = new mmTagCtrlPopupWindow(this);
+    wxScrolledWindow* scrolledWindow = new wxScrolledWindow(popupWindow_);
+    tagCheckListBox_ = new wxCheckListBox(scrolledWindow, wxID_ANY, wxDefaultPosition, wxDefaultSize, {}, wxLB_SORT);
+    tagCheckListBox_->SetFont(GetFont());
+    tagCheckListBox_->Bind(wxEVT_CHECKLISTBOX, &mmTagTextCtrl::OnPopupCheckboxSelected, this);
+
+    wxBoxSizer* sw_sizer = new wxBoxSizer(wxVERTICAL);
+    sw_sizer->Add(tagCheckListBox_, 1, wxEXPAND);
+    scrolledWindow->SetSizer(sw_sizer);
+    init();
+    scrolledWindow->Fit();
+    sw_sizer->Fit(popupWindow_);
+
+    SetSizer(panel_sizer);
+    SetSizeHints(-1, panelHeight, -1, panelHeight);
+    Layout();
+    btn_dropdown_->Refresh();
+    btn_dropdown_->Update();
+}
+
+void mmTagTextCtrl::OnMouseCaptureChange(wxMouseEvent& event)
+{
+    textCtrl_->Refresh(false);
+    event.Skip();
+}
+
+void mmTagTextCtrl::OnFocusChange(wxFocusEvent& event)
+{
+    textCtrl_->Refresh(false);
+    event.Skip();
+}
+
+void mmTagTextCtrl::OnDropDown(wxCommandEvent& event)
+{
+    if (!popupWindow_->dismissedByButton_)
+    {
+        Validate();
+        wxPoint pos = ClientToScreen(textCtrl_->GetPosition());
+        pos.y += textCtrl_->GetSize().GetHeight() + 3;
+        pos.x -= 2;
+        popupWindow_->Position(pos, wxSize(0, 0));
+        popupWindow_->SetSize(GetSize().GetWidth(), -1);
+        tagCheckListBox_->GetParent()->SetSize(popupWindow_->GetSize());
+
+        for (unsigned int i = 0; i < tagCheckListBox_->GetCount(); i++)
+        {
+            if (tags_.find(tagCheckListBox_->GetString(i)) != tags_.end())
+                tagCheckListBox_->Check(i);
+            else
+                tagCheckListBox_->Check(i, false);
+        }
+
+        popupWindow_->Popup();
+        tagCheckListBox_->SetFocus();
+    }
+    else
+        popupWindow_->dismissedByButton_ = false;
+}
+
+void mmTagTextCtrl::OnKeyPressed(wxKeyEvent& event)
+{
+    int keyCode = event.GetKeyCode();
+    if (keyCode == WXK_RETURN || keyCode == WXK_NUMPAD_ENTER)
+    {
+        int ip = textCtrl_->GetInsertionPoint();
+        if (textCtrl_->GetText().IsEmpty() || textCtrl_->GetTextRange(ip - 1, ip) == " ")
+        {
+            mmTagDialog dlg(this, true, parseTags(textCtrl_->GetText()));
+            dlg.ShowModal();
+            wxString selection;
+            for (const auto& tag : dlg.getSelectedTags())
+                selection.Append(tag + " ");
+            textCtrl_->SetText(selection);
+            textCtrl_->GotoPos(textCtrl_->GetLastPosition());
+            if (dlg.getRefreshRequested())
+                init();
+        }
+        else if (textCtrl_->AutoCompActive())
+        {
+            textCtrl_->AutoCompComplete();
+        }
+
+        Validate();
+        return;
+    }
+    else if (keyCode == WXK_TAB && !event.AltDown())
+    {
+        bool prev = event.ShiftDown();
+        wxWindow* next_control = prev ? GetPrevSibling() : GetNextSibling();
+        while (next_control && !next_control->IsFocusable())
+            next_control = prev ? next_control->GetPrevSibling() : next_control->GetNextSibling();
+        if (next_control)
+            next_control->SetFocus();
+        return;
+    }
+    else if (keyCode == WXK_SPACE)
+    {
+        textCtrl_->AutoCompCancel();
+        textCtrl_->InsertText(textCtrl_->GetInsertionPoint(), " ");
+        Validate();
+        return;
+    }
+    event.Skip();
+}
+
+void mmTagTextCtrl::init()
+{
+    // Initialize the tag map and dropdown checkboxes
+    tag_map_.clear();
+    tagCheckListBox_->Clear();
+    for (const auto& tag : Model_Tag::instance().all(DB_Table_TAG_V1::COL_TAGNAME))
+    {
+        tag_map_[tag.TAGNAME] = tag.TAGID;
+        tagCheckListBox_->Append(tag.TAGNAME);
+    }
+
+    tagCheckListBox_->Fit();
+}
+
+void mmTagTextCtrl::OnTextChanged(wxKeyEvent& event)
+{
+    int keyCode = event.GetUnicodeKey();
+    if (!event.AltDown() && keyCode > 32 && keyCode < 127)
+    {
+
+        int ip = textCtrl_->GetInsertionPoint();
+        int anchor = textCtrl_->GetAnchor();
+        int tag_start = textCtrl_->WordStartPosition(std::min(anchor, ip), true);
+        int tag_end = textCtrl_->WordEndPosition(std::max(anchor, ip), true);
+
+        // Show autocomplete
+        wxString pattern = textCtrl_->GetText().Mid(tag_start, std::min(ip, anchor) - tag_start).Append(event.GetUnicodeKey());
+        autocomplete_string_.Clear();
+        for (const auto& tag : tag_map_)
+        {
+            if (tag.first.Lower().Matches(pattern.Lower().Prepend("*").Append("*")))
+                autocomplete_string_.Append(tag.first + " ");
+        }
+        if (!autocomplete_string_.IsEmpty())
+        {
+            textCtrl_->AutoCompShow(tag_end - tag_start, autocomplete_string_);
+        }
+        else
+            textCtrl_->AutoCompCancel();
+    }
+    event.Skip();
+}
+
+void mmTagTextCtrl::OnPopupCheckboxSelected(wxCommandEvent& event)
+{
+    // When the user clicks in item in the checkbox update the textCtrl
+    wxString selectedText = event.GetString();
+    // If they checked a box, append to the string
+    if (tagCheckListBox_->IsChecked(event.GetSelection()))
+        textCtrl_->SetText(textCtrl_->GetText().Trim() + " " + selectedText +  " ");
+    else
+    {
+        // If they unchecked a box, remove the tag from the string.
+        int pos = 0;
+        while (pos <= textCtrl_->GetLastPosition())
+        {
+            pos = textCtrl_->FindText(pos, textCtrl_->GetLastPosition(), selectedText);
+
+            if (pos == wxNOT_FOUND)
+                break;
+
+            pos = textCtrl_->WordStartPosition(pos, true);
+            int end = textCtrl_->WordEndPosition(pos, true);
+            if (textCtrl_->GetTextRange(pos, end) == selectedText)
+            {
+                textCtrl_->Remove(pos, end);
+                break;
+            }
+            pos = end + 1;
+        }
+    }
+    Validate();
+}
+
+void mmTagTextCtrl::OnPaste(wxStyledTextEvent& event)
+{
+    wxString currText = textCtrl_->GetText();
+    Validate(currText.insert(textCtrl_->GetInsertionPoint(), event.GetString()));
+    event.SetString("");
+}
+
+void mmTagTextCtrl::OnKillFocus(wxFocusEvent& event)
+{
+    textCtrl_->AutoCompCancel();
+    // Remove any non-tags
+    Validate();
+    wxString tagString;
+    wxArrayString tags = parseTags(textCtrl_->GetText());
+    for (const auto& tag : tags)
+        if (tags_.find(tag) != tags_.end()
+            || (operatorAllowed_ && (tag == "&" || tag == "|")))
+            tagString.Append(tag + " ");
+
+    textCtrl_->SetText(tagString.Trim());
+    event.Skip();
+}
+
+bool mmTagTextCtrl::Enable(bool enable)
+{
+    if (enable == textCtrl_->IsEnabled())
+        return false;
+
+    textCtrl_->Enable(enable);
+    btn_dropdown_->Enable(enable);
+
+    if (enable)
+    {
+        textCtrl_->StyleSetBackground(wxSTC_STYLE_DEFAULT, wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+        SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+    }
+    else
+    {
+        textCtrl_->StyleSetBackground(wxSTC_STYLE_DEFAULT, wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+        SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+    }
+
+    return true;
+}
+
+void mmTagTextCtrl::OnPaint(wxPaintEvent& event)
+{
+    int end = textCtrl_->GetTextLength();
+    int position = 0;
+
+    // Reset the text style
+    textCtrl_->ClearDocumentStyle();
+
+    while (position < end)
+    {
+        // Find start and end of word
+        int wordStart = textCtrl_->WordStartPosition(position, true);
+        int wordEnd = textCtrl_->WordEndPosition(position, true);
+        wxString word = textCtrl_->GetTextRange(wordStart, wordEnd);
+
+        auto it = tag_map_.find(word);
+        // If the word is a valid tag, color it
+        if (it != tag_map_.end())
+        {
+            textCtrl_->StartStyling(wordStart);
+            textCtrl_->SetStyling(wordEnd - wordStart, 1);
+        }
+
+        position = wordEnd + 1;
+    }
+    
+#ifndef __WXMAC__
+    // paint a TextCtrl over the background -- not currently used on macOS due to dark mode bug
+    wxWindowDC dc(this);
+    wxRegion clipRegion(GetClientRect());
+    if (btn_dropdown_->GetClientRect().Contains(btn_dropdown_->ScreenToClient(wxGetMousePosition())))
+    {
+        wxRect btnRect(btn_dropdown_->GetClientRect());
+        btnRect.x += textCtrl_->GetSize().GetWidth() + 2;
+        btnRect.y = 1;
+        btnRect.height -= 2;
+        btnRect.width -= 1;
+        clipRegion.Subtract(btnRect); // Exclude the button face (minus top, right, and bottom borders)
+    }
+    dc.SetDeviceClippingRegion(clipRegion);
+    wxRendererNative::Get().DrawTextCtrl(this, dc, GetClientRect(), textCtrl_->IsEnabled() ? wxCONTROL_NONE : wxCONTROL_DISABLED);
+#endif
+
+#ifdef __WXMSW__
+    dc.DrawBitmap(textCtrl_->IsEnabled() ? dropArrow_ : dropArrowInactive_, wxPoint(textCtrl_->GetSize().GetWidth() + 2, 0));
+
+    dc.DestroyClippingRegion();
+
+    borderColor_ = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWFRAME);
+    if (!textCtrl_->IsEnabled())
+        borderColor_ = wxSystemSettings::GetColour(wxSYS_COLOUR_SCROLLBAR);
+    else if (textCtrl_->HasFocus() || btn_dropdown_->HasFocus() || popupWindow_->IsShown())
+        borderColor_ = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+    else if (GetClientRect().Contains(ScreenToClient(wxGetMousePosition())))
+        borderColor_ = *wxBLACK;
+
+    dc.SetPen(borderColor_);
+
+    wxRect rect(GetClientRect());
+
+    wxPoint pt[5]{
+        wxPoint(0, 0),
+        wxPoint(rect.width - 1, 0),
+        wxPoint(rect.width -1, rect.height - 1),
+        wxPoint(0, rect.height - 1),
+        wxPoint(0, 0)
+    };
+
+    dc.DrawLines(5, pt);
+
+    if (!initialRefreshDone_)
+    {
+        btn_dropdown_->Refresh();
+        initialRefreshDone_ = true;
+    }
+
+#endif
+
+    event.Skip();
+}
+
+void mmTagTextCtrl::OnPaintButton(wxPaintEvent& event)
+{
+    wxPaintDC dc(btn_dropdown_);
+
+    wxRect rect = btn_dropdown_->GetClientRect();
+    
+    // Figure out what style the button needs
+    long style = wxCONTROL_NONE;
+    if (popupWindow_->IsShown())
+        style = wxCONTROL_PRESSED;
+    else if (btn_dropdown_->IsEnabled() && rect.Contains(btn_dropdown_->ScreenToClient(wxGetMousePosition())))
+        style = wxCONTROL_CURRENT;
+
+    if(style != wxCONTROL_NONE)
+        wxRendererNative::Get().DrawComboBoxDropButton(this, dc, rect, style);
+    else
+    {
+        // If we aren't interacting with the button, draw the drop arrow
+        // directly on the texctrl like the native combobox
+        dc.DrawBitmap(btn_dropdown_->IsEnabled() ? dropArrow_ : dropArrowInactive_, wxPoint(0, 0));
+    }
+
+    // Redraw the top, right, and bottom borders to match the window border
+    if (style != wxCONTROL_CURRENT && style != wxCONTROL_PRESSED)
+    {
+        dc.SetPen(borderColor_);
+        dc.DrawLine(rect.x, 0, rect.x + rect.width, 0);
+        dc.DrawLine(rect.x + rect.width - 1, 0, rect.x + rect.width - 1, rect.height);
+        dc.DrawLine(rect.x + rect.width - 1, rect.height - 1, rect.x, rect.height - 1);
+    }
+}
+
+/* Validates all tags passed in tagText, or the contents of the text control if tagText is blank */
+bool mmTagTextCtrl::Validate(const wxString& tagText)
+{
+    // Clear stored tags
+    tags_.clear();
+
+    int ip = textCtrl_->GetInsertionPoint();
+
+    // If we are passed a string validate it, otherwise validate the text control contents
+    wxString tags_in = tagText;
+    if (tags_in.IsEmpty())
+        tags_in = textCtrl_->GetText();
+
+    if (tags_in.IsEmpty()) return true;
+
+    textCtrl_->SetEvtHandlerEnabled(false);
+    wxString tags_out;
+    bool newTagCreated = false;
+    bool is_valid = true;
+    // parse the tags and prompt to create any which don't exist
+    for (const auto& tag : parseTags(tags_in))
+    {
+        // ignore search operators
+        if (tag == "&" || tag == "|")
+        {
+            tags_out.Append(tag + " ");
+            continue;
+        }
+
+        if (tag_map_.find(tag) == tag_map_.end())
+        {
+            // Prompt user to create a new tag
+            if (wxMessageDialog(nullptr, wxString::Format(_("Create new tag '%s'?"), tag), _("New tag entered"), wxYES_NO).ShowModal() == wxID_YES)
+            {
+                newTagCreated = true;
+                Model_Tag::Data* newTag = Model_Tag::instance().create();
+                newTag->TAGNAME = tag;
+                newTag->ACTIVE = 1;
+                Model_Tag::instance().save(newTag);
+                // Save the new tag to reference
+                tag_map_[tag] = newTag->TAGID;
+                tagCheckListBox_->Append(tag);
+            }
+            else
+            {
+                is_valid = false;
+                continue;
+            }
+        }
+
+        tags_[tag] = tag_map_[tag];
+        tags_out.Append(tag + " ");
+    }
+
+    // Replace tags with case-corrected versions and remove duplicates
+    textCtrl_->SetText(tags_out);
+    textCtrl_->GotoPos(textCtrl_->WordEndPosition(ip, true) + 1);
+    textCtrl_->SetEvtHandlerEnabled(true);
+    return is_valid;
+}
+
+/* Return a list of tag IDs contained in the control */
+const wxArrayInt mmTagTextCtrl::GetTagIDs() const
+{
+    wxArrayInt tags_out;
+    for (const auto& tag : tags_)
+        tags_out.Add(tag.second);
+
+    return tags_out;
+}
+
+wxArrayString mmTagTextCtrl::parseTags(const wxString& tagString)
+{
+    wxStringTokenizer tokenizer = wxStringTokenizer(tagString, " ");
+    wxArrayString tags;
+    while (tokenizer.HasMoreTokens())
+    {
+        wxString token = tokenizer.GetNextToken();
+
+
+        // ignore search operators
+        if (token == "&" || token == "|")
+        {
+            if (operatorAllowed_) tags.Add(token);
+            continue;
+        }
+
+        bool tagUsed = false;
+        // if the tag has already been entered, skip it to avoid duplicates
+        for (const auto& tag : tags)
+            if (tag.IsSameAs(token, false))
+            {
+                tagUsed = true;
+                break;
+            }
+
+        if (tagUsed) continue;
+
+        auto it = tag_map_.find(token);
+        if (it != tag_map_.end())
+            // case correction for existing tag
+            tags.Add((*it).first);
+        else
+            tags.Add(token);
+    }
+
+    return tags;
+}
+
+void mmTagTextCtrl::SetTags(const wxArrayInt& tagIds)
+{
+    // Save the tag IDs and tag names
+    tags_.clear();
+    for (const auto& tagId : tagIds)
+        for (const auto& tag : tag_map_)
+            if (tag.second == tagId)
+            {
+                tags_[tag.first] = tagId;
+                break;
+            }
+
+    // Set the text of the control (sorted)
+    wxString tagString;
+    for (const auto& tag : tags_)
+        tagString.Append(tag.first + " ");
+
+    textCtrl_->SetText(tagString);
 }

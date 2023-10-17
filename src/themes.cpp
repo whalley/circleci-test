@@ -252,13 +252,13 @@ void mmThemesDialog::RefreshView()
         wxMemoryFSHandler::RemoveFile(webImageName);
         wxMemoryFSHandler::RemoveFile(themeImageName);
     }
-    wxMemoryFSHandler::AddFile(webImageName, mmBitmap(png::WEB), wxBITMAP_TYPE_PNG);
+    wxMemoryFSHandler::AddFile(webImageName, mmBitmapBundle(png::WEB).GetBitmap(wxDefaultSize), wxBITMAP_TYPE_PNG);
     imgUrl = "memory:" + webImageName;
     wxMemoryFSHandler::AddFile(themeImageName, thisTheme.bitMap, wxBITMAP_TYPE_PNG);
     themeImageUrl = "memory:" + themeImageName;
     vfsThemeImageLoaded = true;
 #else
-    mmBitmap(png::WEB).SaveFile(mmex::getTempFolder() + webImageName, wxBITMAP_TYPE_PNG);
+    mmBitmapBundle(png::WEB).GetBitmap(wxDefaultSize).SaveFile(mmex::getTempFolder() + webImageName, wxBITMAP_TYPE_PNG);
     imgUrl = "file://" + mmex::getTempFolder() + webImageName;
     thisTheme.bitMap.SaveFile(mmex::getTempFolder() + themeImageName, wxBITMAP_TYPE_PNG);
     themeImageUrl = "file://" + mmex::getTempFolder() + themeImageName;
@@ -284,7 +284,7 @@ void mmThemesDialog::OnImport(wxCommandEvent& event)
 {
     wxString fileName = wxFileSelector(_("Choose theme file to import")
         , wxEmptyString, wxEmptyString, wxEmptyString
-        , "MMX Theme (*.mmxtheme)|*.mmextheme"
+        , "MMX Theme (*.mmextheme)|*.mmextheme"
         , wxFD_FILE_MUST_EXIST | wxFD_OPEN
         , this
     );

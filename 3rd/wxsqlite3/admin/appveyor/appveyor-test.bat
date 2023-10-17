@@ -7,8 +7,8 @@ cd c:\projects\wxsqlite3
 goto %TOOLSET%
 
 :msbuild
-PATH=%WXWIN%\lib\vc141_x64_dll;%PATH%
-".\build\bin\%ARCH%\%CONFIGURATION%\minimal.exe" -t -s .\samples
+PATH=%WXWIN%\lib\vc14x_x64_dll;%PATH%
+".\build\bin\vc15\%ARCH%\%CONFIGURATION%\minimal.exe" -t -s .\samples
 goto :eof
 
 :error

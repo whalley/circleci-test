@@ -1,9 +1,9 @@
-/*
+  /*
 ** Name:        wxsqlite3def.h
 ** Purpose:     wxWidgets wrapper around the SQLite3 embedded database library.
 ** Author:      Ulrich Telle
 ** Created:     2005-07-14
-** Copyright:   (c) 2005-2020 Ulrich Telle
+** Copyright:   (c) 2005-2022 Ulrich Telle
 ** License:     LGPL-3.0+ WITH WxWindows-exception-3.1
 */
 
@@ -40,12 +40,153 @@
   since wxWidgets 2.8.4) are used for the conversion. Special care has to be taken if external administration
   tools are used to modify the database contents, since not all of these tools operate in Unicode or UTF-8 mode.
 
+\note With the release of SQLite version 3.32.0 on May 22, 2020 critical changes to the public SQLite code finally took officially effect, although they weren't officially announced. They were introduced on Feb 7, 2020: ["Simplify the code by removing the unsupported and undocumented SQLITE_HAS_CODEC compile-time option"](https://www.sqlite.org/src/timeline?c=5a877221ce90e752). Since August 2020 a new implementation of an encryption extension, capable of supporting SQLite version 3.32.0 and later, is available as a separate project, [**SQLite3 Multiple Ciphers**](https://github.com/utelle/SQLite3MultipleCiphers). Starting with the release of **wxSQLite3 4.6.0** this new implementation will be used.
+
 \section version Version history
 
 <dl>
 
-<dt><b>4.6.0</b> - <i>February 2020</i></dt>
+<dt><b>4.9.1</b> - <i>November 2022</i></dt>
 <dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.5.4 (SQLite version 3.40.0)</i><br>
+
+</dd>
+
+<dt><b>4.9.0</b> - <i>September 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.5.3 (SQLite version 3.39.3)</i><br>
+
+</dd>
+
+<dt><b>4.8.2</b> - <i>July 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.4.6 (SQLite version 3.39.1)</i><br>
+
+</dd>
+
+<dt><b>4.8.1</b> - <i>May 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.4.3 (SQLite version 3.38.5)</i><br>
+
+</dd>
+
+<dt><b>4.8.0</b> - <i>April 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.4.2 (SQLite version 3.38.3)</i><br>
+
+</dd>
+
+<dt><b>4.7.9</b> - <i>April 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.10 (SQLite version 3.38.2)</i><br>
+
+</dd>
+<dt><b>4.7.8</b> - <i>March 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.9 (SQLite version 3.38.1)</i><br>
+
+</dd>
+<dt><b>4.7.7</b> - <i>February 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.8 (SQLite version 3.38.0)</i><br>
+
+</dd>
+<dt><b>4.7.6</b> - <i>January 2022</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.7 (SQLite version 3.37.2)</i><br>
+
+</dd>
+<dt><b>4.7.5</b> - <i>November 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.5 (SQLite version 3.37.0)</i><br>
+
+</dd>
+<dt><b>4.7.4</b> - <i>July 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.4 (SQLite version 3.36.0)</i><br>
+
+</dd>
+<dt><b>4.7.3</b> - <i>June 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.3 (SQLite version 3.36.0)</i><br>
+
+</dd>
+<dt><b>4.7.2</b> - <i>May 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.2 (SQLite version 3.35.5)</i><br>
+
+</dd>
+<dt><b>4.7.1</b> - <i>April 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.1 (SQLite version 3.35.5)</i><br>
+
+</dd>
+<dt><b>4.7.0</b> - <i>April 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.3.0 (SQLite version 3.35.5)</i><br>
+
+</dd>
+<dt><b>4.6.10</b> - <i>April 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.5 (SQLite version 3.35.5)</i><br>
+
+</dd>
+<dt><b>4.6.9</b> - <i>April 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.4 (SQLite version 3.35.4)</i><br>
+
+</dd>
+<dt><b>4.6.8</b> - <i>March 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.3 (SQLite version 3.35.3)</i><br>
+
+</dd>
+<dt><b>4.6.7</b> - <i>March 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.2 (SQLite version 3.35.2)</i><br>
+
+</dd>
+<dt><b>4.6.6</b> - <i>March 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.1 (SQLite version 3.35.1)</i><br>
+
+</dd>
+<dt><b>4.6.5</b> - <i>March 2021</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.2.0 (SQLite version 3.35.0)</i><br>
+Enabled new SQLite Math Extension<br>
+Fixed a memory leak in method wxSQLite3Database::GetTable<br>
+Adjusted build files (DLL builds with MinGW/GCC used wrong DLL file extension)<br>
+
+</dd>
+<dt><b>4.6.4</b> - <i>December 2020</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.1.3</i><br>
+Adjusted autotool build files to enable AES hardware support if available<br>
+
+</dd>
+<dt><b>4.6.3</b> - <i>December 2020</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.1.2</i><br>
+Adjusted build files for MinGW<br>
+
+</dd>
+<dt><b>4.6.2</b> - <i>December 2020</i></dt>
+<dd>
+Upgrade to <i>SQLite3 Multiple Ciphers version 1.1.1</i><br>
+Upgrade to <i>SQLite version 3.34.0</i><br>
+Added method wxSQLite3Database::QueryTransactionState<br>
+
+</dd>
+<dt><b>4.6.1</b> - <i>October 2020</i></dt>
+<dd>
+Added SQLite VSV extension (Variably Separated Values)<br>
+
+</dd>
+<dt><b>4.6.0</b> - <i>August 2020</i></dt>
+<dd>
+Use SQLite encryption extension "SQLite3 Multiple Ciphers"<br>
+Upgrade to SQLite version 3.33.0<br>
 Added support for System.Data.SQLite's RC4 encryption<br>
 
 </dd>
@@ -664,8 +805,8 @@ The following people have contributed to wxSQLite3:
 
  */
 
-#ifndef _WX_SQLITE3_DEF_H_
-#define _WX_SQLITE3_DEF_H_
+#ifndef WX_SQLITE3_DEF_H_
+#define WX_SQLITE3_DEF_H_
 
 #if defined(WXMAKINGLIB_WXSQLITE3)
   #define WXDLLIMPEXP_SQLITE3
@@ -689,4 +830,4 @@ The following people have contributed to wxSQLite3:
   #define WXDLLIMPEXP_FWD_SQLITE3 WXDLLIMPEXP_SQLITE3
 #endif
 
-#endif // _WX_SQLITE3_DEF_H_
+#endif // WX_SQLITE3_DEF_H_

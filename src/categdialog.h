@@ -23,6 +23,8 @@
 
 
 #include "defs.h"
+#include <wx/srchctrl.h>
+#include <wx/tglbtn.h>
 #include "model/Model_Category.h"
 
 class mmCategDialogTreeCtrl : public wxTreeCtrl
@@ -31,25 +33,22 @@ class mmCategDialogTreeCtrl : public wxTreeCtrl
 public:
     mmCategDialogTreeCtrl() { };
     mmCategDialogTreeCtrl(wxWindow *parent, const wxWindowID id,
-                       const wxPoint& pos, const wxSize& size,
-                       long style=wxTR_DEFAULT_STYLE);
+        const wxPoint& pos, const wxSize& size,
+        long style=wxTR_DEFAULT_STYLE);
 protected:
-    int OnCompareItems(const wxTreeItemId& item1, const wxTreeItemId& item2);	
+    int OnCompareItems(const wxTreeItemId& item1, const wxTreeItemId& item2);
 };
 
 class mmTreeItemCateg : public wxTreeItemData
 {
 public:
-    mmTreeItemCateg(const Model_Category::Data& categData, const Model_Subcategory::Data& subcategData)
+    mmTreeItemCateg(const Model_Category::Data& categData)
         : categData_(categData)
-        , subcategData_(subcategData)
     {}
     Model_Category::Data* getCategData() { return &categData_; }
-    Model_Subcategory::Data* getSubCategData() { return &subcategData_; }
 
 private:
     Model_Category::Data categData_;
-    Model_Subcategory::Data subcategData_;
 };
 
 class mmCategDialog : public wxDialog
@@ -62,7 +61,7 @@ public:
     mmCategDialog();
     mmCategDialog(wxWindow* parent
         , bool bIsSelection
-        , int category_id, int subcategory_id);
+        , int category_id);
 
     bool Create(wxWindow* parent
         , wxWindowID id = wxID_ANY
@@ -71,9 +70,8 @@ public:
         , const wxPoint& pos = wxDefaultPosition
         , const wxSize& size = wxDefaultSize
         , long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX | wxRESIZE_BORDER);
-
+    
     int getCategId() const;
-    int getSubCategId() const;
     bool getRefreshRequested() const;
     bool mmIsUsed() const;
     wxString getFullCategName();
@@ -81,8 +79,9 @@ public:
 private:
     void CreateControls();
     void fillControls();
-    void setTreeSelection(int category_id, int subcategory_id);
-
+    void setTreeSelection(int category_id);
+    void saveCurrentCollapseState();
+    bool AppendSubcategoryItems(wxTreeItemId parentid, const Model_Category::Data* child);
     void OnOk(wxCommandEvent& event);
     void OnCancel(wxCommandEvent& event);
     void OnAdd(wxCommandEvent& event);
@@ -94,32 +93,41 @@ private:
     void OnDoubleClicked(wxTreeEvent& event);
     void showCategDialogDeleteError(bool category = true);
     void OnCategoryRelocation(wxCommandEvent& /*event*/);
-    void OnExpandChbClick(wxCommandEvent& /*event*/);
-    void OnShowHiddenChbClick(wxCommandEvent& /*event*/);
+    void OnExpandOrCollapseToggle(wxCommandEvent& event);
+    void OnShowHiddenToggle(wxCommandEvent& /*event*/);
+    void OnTextChanged(wxCommandEvent& event);
     void OnMenuSelected(wxCommandEvent& event);
     void OnItemRightClick(wxTreeEvent& event);
-    bool categShowStatus(int categId, int subCategId);
-    void setTreeSelection(const wxString& catName, const wxString& subCatName);
+    void OnItemCollapseOrExpand(wxTreeEvent& event);
+    void OnBeginDrag(wxTreeEvent& event);
+    void OnEndDrag(wxTreeEvent& event);
+    bool categShowStatus(int categId);
+    void setTreeSelection(const wxString& catName, const int parentid);
+    bool validateName(wxString name);
 
-    mmCategDialogTreeCtrl* m_treeCtrl;
-    wxButton* m_buttonAdd;
-    wxButton* m_buttonEdit;
-    wxButton* m_buttonSelect;
-    wxButton* m_buttonDelete;
-    wxBitmapButton* m_buttonRelocate;
-    wxCheckBox* m_cbExpand;
-    wxCheckBox* m_cbShowAll;
+    mmCategDialogTreeCtrl* m_treeCtrl = nullptr;
+    wxSearchCtrl* m_maskTextCtrl = nullptr;
+    wxButton* m_buttonAdd = nullptr;
+    wxButton* m_buttonEdit = nullptr;
+    wxButton* m_buttonSelect = nullptr;
+    wxButton* m_buttonDelete = nullptr;
+    wxBitmapButton* m_buttonRelocate = nullptr;
+    wxToggleButton* m_tbCollapse = nullptr;
+    wxToggleButton* m_tbExpand = nullptr;
+    wxToggleButton* m_tbShowAll = nullptr;
     wxTreeItemId m_selectedItemId;
     wxTreeItemId root_;
-    wxTreeItemId getTreeItemFor(const wxTreeItemId& itemID, const wxString& itemText);
+    wxTreeItemId getTreeItemFor(const wxTreeItemId& itemID, const wxString& itemText, const int parentid);
     bool m_IsSelection;
     int m_categ_id;
-    int m_subcateg_id;
     int m_init_selected_categ_id;
-    int m_init_selected_subcateg_id;
+    int m_dragSourceCATEGID;
+    std::map<int, bool> m_categoryVisible;
+    std::map<int, std::vector<Model_Category::Data>> m_categ_children;
+    bool m_processExpandCollapse = true;
     wxColour NormalColor_;
-    wxArrayString m_hidden_categs;
-    bool m_refresh_requested;
+    bool m_refresh_requested = false;
+    wxString m_maskStr;
 
     enum
     {
@@ -127,12 +135,13 @@ private:
         MENU_ITEM_UNHIDE,
         MENU_ITEM_CLEAR,
         MENU_ITEM_DELETE,
-        ID_DIALOG_CATEGORY
+        ID_DIALOG_CATEGORY,
+        ID_EXPAND,
+        ID_COLLAPSE
     };
 };
 
 inline int mmCategDialog::getCategId() const { return m_categ_id; }
-inline int mmCategDialog::getSubCategId() const { return m_subcateg_id; }
 inline bool mmCategDialog::getRefreshRequested() const { return m_refresh_requested; }
 
 #endif

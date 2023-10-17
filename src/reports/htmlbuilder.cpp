@@ -27,6 +27,7 @@
 #include "model/Model_Infotable.h"
 #include <iomanip>
 #include <ios>
+#include <float.h>
 
 
 namespace tags
@@ -38,15 +39,39 @@ namespace tags
 </body>
 <script>
     $(".toggle").click(function() {
-        var kids = $(this).nextUntil(".toggle")
-        kids.toggle(kids.first().is(":hidden"))
+		var text = $("td a", this).text();
+        if ($(this).next("tr").is(":hidden")) {
+            $("tr[data-row-pid='" + $(this).data("row-id") + "']").show();
+            $("td a", this).text(text.replace(text[0],"\u2212"));
+        } else {
+            $("td a", this).text(text.replace(text[0],"+"));
+            $("tr[data-row-pid^='" + $(this).data("row-id") + "']").each(function(){
+                if($(this).hasClass('toggle')){
+                    text = $("td a", this).text();
+                    $("td a", this).text(text.replace(text[0],"+"));
+                }
+                $(this).hide();
+            });
+        }
     })
+
     function expandAllToggles() {
-        $(".xtoggle").show();
+        $("tr.toggle td a").each(function(){
+            var text = $(this).text();
+            $(this).text(text.replace(text[0],"\u2212"));
+        });
+        $("tr").show();
     }
+
     function collapseAllToggles() {
-        $(".xtoggle").hide();
+    	$("tr.toggle td a").each(function(){
+            var text = $(this).text();
+            $(this).text(text.replace(text[0],"+"));
+        });
+        $("tr.toggle[data-row-pid!='0.']").hide();
+        $("tr.xtoggle").hide();
     }
+
     collapseAllToggles();
     var elements = document.getElementsByClassName('money');
     for (var i = 0; i < elements.length; i++) {
@@ -74,7 +99,7 @@ namespace tags
 <script src = 'memory:sorttable.js'></script>
 <script src = 'memory:jquery.min.js'></script>
 <style>
-    /* Sortable tables */
+     * Sortable tables */
     table.sortable thead {cursor: default;}
     body { font-size: %s%%; }
 %s
@@ -89,8 +114,8 @@ namespace tags
     static const wxString DIV_COL3 = "<div class='col-xs-3'></div>\n<div class='col-xs-6'>\n"; //25_50%
     static const wxString DIV_COL1 = "<div class='col-xs-1'></div>\n<div class='col-xs-10'>\n"; //8%
     static const wxString DIV_END = "</div>\n";
-    static const wxString TABLE_START = "<table class='table table-bordered'>\n";
-    static const wxString SORTTABLE_START = "<table class='sortable table'>\n";
+    static const wxString TABLE_START = "<table class='table table-bordered report-table'>\n";
+    static const wxString SORTTABLE_START = "<table class='sortable table report-table'>\n";
     static const wxString TABLE_END = "</table>\n";
     static const wxString THEAD_START = "<thead>\n";
     static const wxString THEAD_END = "</thead>\n";
@@ -125,7 +150,7 @@ namespace tags
 mmHTMLBuilder::mmHTMLBuilder()
 {
     today_.date = wxDateTime::Now();
-    today_.todays_date = wxString::Format(_("Report Generated %s %s")
+    today_.todays_date = wxString::Format(_("Report Generated %1$s %2$s")
         , mmGetDateForDisplay(today_.date.FormatISODate())
         , today_.date.FormatISOTime());
 }
@@ -186,7 +211,7 @@ void mmHTMLBuilder::DisplayDateHeading(const wxDateTime& startDate, const wxDate
 {
     wxString sDate;
     if (withDateRange && startDate.IsValid() && endDate.IsValid()) {
-        sDate << wxString::Format(_("From %s till %s")
+        sDate << wxString::Format(_("From %1$s till %2$s")
             , mmGetDateForDisplay(startDate.FormatISODate())
             , withNoEndDate ? _("Future") : mmGetDateForDisplay(endDate.FormatISODate()));
     }
@@ -343,7 +368,7 @@ void mmHTMLBuilder::addMoneyCell(double amount, int precision)
     const wxString s = Model_Currency::toString(amount, Model_Currency::GetBaseCurrency(), precision);
     wxString f = wxString::Format(" class='money' sorttable_customkey = '%f' nowrap", amount);
     html_ += wxString::Format(tags::TABLE_CELL, f);
-    html_ += s;
+    html_ += (amount == -DBL_MAX) ? "" : s;     // If -DBL_MAX then just display empty string
     this->endTableCell();
 }
 
@@ -369,9 +394,10 @@ void mmHTMLBuilder::addEmptyTableCell(const int number)
         this->addTableCell("");
 }
 
-void mmHTMLBuilder::addColorMarker(const wxString& color)
+void mmHTMLBuilder::addColorMarker(const wxString& color, bool center)
 {
-    html_ += wxString::Format(tags::TABLE_CELL, "");
+    const wxString align = center ? " class='text-center'" : " class='text-left'";
+    html_ += wxString::Format(tags::TABLE_CELL, align);
     html_ += wxString::Format("<span style='font-family: serif; %s'>%s</span>"
         , (color.empty() ? "": wxString::Format("color: %s", color))
         , (color.empty() ? L" " : L"\u2588"));
@@ -410,9 +436,9 @@ void mmHTMLBuilder::addTableCellMonth(int month, int year)
 }
 
 void mmHTMLBuilder::addTableCellLink(const wxString& href
-    , const wxString& value)
+    , const wxString& value, bool numeric, bool center)
 {
-    addTableCell(wxString::Format(tags::TABLE_CELL_LINK, href, value));
+    addTableCell(wxString::Format(tags::TABLE_CELL_LINK, href, value), numeric, center);
 }
 
 void mmHTMLBuilder::addTableRow(const wxString& label, double data)
@@ -575,6 +601,7 @@ void mmHTMLBuilder::addChart(const GraphData& gd)
             chartWidth = 70;
             break;
         case GraphData::BARLINE:
+        case GraphData::STACKEDBARLINE:
             gtype = "line";
             if (gd.labels.size() < 5)
                 chartWidth = 70;
@@ -584,7 +611,8 @@ void mmHTMLBuilder::addChart(const GraphData& gd)
 
     htmlChart += wxString::Format("chart: { animations: { enabled: false }, type: '%s', %s foreColor: '%s', toolbar: { tools: { download: false } }, width: '%i%%' }" 
                     , gtype
-                    , (gd.type == GraphData::STACKEDAREA) ? "stacked: true," : ""
+                    , (gd.type == GraphData::STACKEDAREA || 
+                       gd.type == GraphData::STACKEDBARLINE) ? "stacked: true," : ""
                     , mmThemeMetaString(meta::COLOR_REPORT_FORECOLOR)
                     , chartWidth);
     htmlChart += wxString::Format(", title: { text: '%s'}", gd.title);
@@ -595,17 +623,23 @@ void mmHTMLBuilder::addChart(const GraphData& gd)
         htmlChart += ", plotOptions: { pie: { customScale: 0.8 } }";
 
         const wxString pieFunctionToolTip = wxString::Format("function(value, opts) { return chart_%s[opts.dataPointIndex] }\n", divid);
-        toolTipFormatter = wxString::Format(", y: { formatter: %s }", pieFunctionToolTip); 
+        toolTipFormatter = wxString::Format(", y: { formatter: %s }", pieFunctionToolTip);
     }
-
+    
     htmlChart += wxString::Format(", tooltip: { theme: 'dark' %s }\n", toolTipFormatter);
-
+    
     // Turn off data labels for bar charts when they get too cluttered
     if ((gd.type == GraphData::BAR || gd.type == GraphData::STACKEDAREA) && gd.labels.size() > 10) 
     {
         htmlChart += ", dataLabels: { enabled: false }";
     } else if (gd.type == GraphData::PIE || gd.type == GraphData::DONUT)
     {
+        htmlChart += ", legend: { formatter: function(seriesName, opts){ "
+            "var percent = (+opts.w.globals.seriesPercent[opts.seriesIndex]).toFixed(1); "
+            "percent = new Array((5 - percent.length)*2).join('&nbsp;') + percent; "
+            + wxString::Format("var valueLength = chart_%s.reduce(function(a, b) {return (a.toString().length > b.toString().length ? a : b) }, []).toString().length; var value = chart_%s[opts.seriesIndex]; ", divid, divid)
+            + "if (valueLength > value.toString().length) { value = new Array((valueLength - value.toString().length)*2).join('&nbsp;') + (parseInt(value) == value ? value : '&nbsp;' + value); } "
+            "return['<strong>', percent + '%&nbsp;', value, '&nbsp;</strong>', seriesName] } }\n";
         htmlChart += ", dataLabels: { enabled: true, style: { fontSize: '16px' }, dropShadow: { enabled: false } }\n";
     }
 
@@ -636,7 +670,8 @@ void mmHTMLBuilder::addChart(const GraphData& gd)
     }
 
     // Pie/donut charts just have a single series / data, and mixed have a single set of labels
-    if (gd.type == GraphData::PIE || gd.type == GraphData::DONUT || gd.type == GraphData::BARLINE)
+    if (gd.type == GraphData::PIE || gd.type == GraphData::DONUT || gd.type == GraphData::BARLINE
+        || gd.type == GraphData::STACKEDBARLINE)
        htmlChart += wxString::Format(",labels: [%s]", categories);
     else
         htmlChart += wxString::Format(", xaxis: { type: '%s', categories: [%s], labels: { hideOverlappingLabels: true } }\n", gSeriesType, categories);
@@ -677,14 +712,16 @@ void mmHTMLBuilder::addChart(const GraphData& gd)
             seriesList = seriesEntries;
         else
         {
-            const wxString typeString = (gd.type == GraphData::BARLINE) ? wxString::Format("type: '%s',", entry.type) : "";
+            const wxString typeString = (gd.type == GraphData::BARLINE || gd.type == GraphData::STACKEDBARLINE)
+                                ? wxString::Format("type: '%s',", entry.type) : "";
             seriesList += wxString::Format("%s{ name: '%s', %s data: [%s] }", firstList ? "":",", entry.name, typeString, seriesEntries);
         }
         firstList = false;
     }
     htmlChart += wxString::Format(", series: [%s]", seriesList);
 
-    if (gd.type == GraphData::BARLINE) {
+    if (gd.type == GraphData::BARLINE || gd.type == GraphData::STACKEDBARLINE)
+    {
         htmlChart += ", dataLabels: { enabled: true, enabledOnSeries: [";   // Always label the lines
         int seriesNo = 0;
         first = true;

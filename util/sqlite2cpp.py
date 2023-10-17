@@ -12,7 +12,7 @@ import codecs
 
 currency_unicode_patch_filename = 'currencies_update_patch_unicode_only.mmdbg'
 currency_table_patch_filename = 'currencies_update_patch.mmdbg'
-sql_tables_data_filename = 'sql_tables_v1.sql'
+sql_tables_data_filename = 'sql_tables.sql'
 
 # http://stackoverflow.com/questions/196345/how-to-check-if-a-string-in-python-is-in-ascii
 def is_ascii(s):
@@ -213,7 +213,7 @@ struct DB_Table_%s : public DB_Table
     /** Removes all records stored in memory (cache) for the table*/ 
     void destroy_cache()
     {
-        std::for_each(cache_.begin(), cache_.end(), std::mem_fun(&Data::destroy));
+        std::for_each(cache_.begin(), cache_.end(), std::mem_fn(&Data::destroy));
         cache_.clear();
         index_by_id_.clear(); // no memory release since it just stores pointer and the according objects are in cache
     }
@@ -388,6 +388,20 @@ struct DB_Table_%s : public DB_Table
 ''' % (self._primay_key, self._primay_key)
 
         s += '''
+        bool equals(const Data* r) const
+        {'''
+        for field in self._fields:
+            ftype = base_data_types_reverse[field['type']]
+            if ftype == 'int' or ftype == 'double':
+                s += '''
+            if(%s != r->%s) return false;''' % (field['name'], field['name'])
+            elif ftype == 'wxString':
+                s += '''
+            if(!%s.IsSameAs(r->%s)) return false;''' % (field['name'], field['name'])
+        s += '''
+            return true;
+        }
+        
         explicit Data(Self* table = 0) 
         {
             table_ = table;
@@ -774,6 +788,44 @@ struct DB_Table_%s : public DB_Table
  
         return entity;
     }
+    /**
+    * Search the database for the data record, bypassing the cache.
+    */
+    Self::Data* get_record(int id, wxSQLite3Database* db)
+    {
+        if (id <= 0) 
+        {
+            ++ skip_;
+            return 0;
+        }
+
+        Self::Data* entity = 0;
+        wxString where = wxString::Format(" WHERE %s = ?", PRIMARY::name().utf8_str());
+        try
+        {
+            wxSQLite3Statement stmt = db->PrepareStatement(this->query() + where);
+            stmt.Bind(1, id);
+
+            wxSQLite3ResultSet q = stmt.ExecuteQuery();
+            if(q.NextRow())
+            {
+                entity = new Self::Data(q, this);
+            }
+            stmt.Finalize();
+        }
+        catch(const wxSQLite3Exception &e) 
+        { 
+            wxLogError("%s: Exception %s", this->name().utf8_str(), e.GetMessage().utf8_str());
+        }
+        
+        if (!entity) 
+        {
+            entity = this->fake_;
+            // wxLogError("%s: %d not found", this->name().utf8_str(), id);
+        }
+ 
+        return entity;
+    }
 '''
         s += '''
     /**
@@ -961,7 +1013,7 @@ struct SorterBy%s
     template<class DATA>
     bool operator()(const DATA& x, const DATA& y)
     {
-        return (std::wcscoll(x.%s.Lower(),y.%s.Lower()) < 0);  // Locale case-insensitive
+        return (std::wcscoll(x.%s.Lower().wc_str(),y.%s.Lower().wc_str()) < 0);  // Locale case-insensitive
     }
 };
 ''' % ( field, field, field)

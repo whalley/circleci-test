@@ -41,9 +41,6 @@ mmBudgetEntryDialog::mmBudgetEntryDialog(wxWindow* parent
     , const wxString& CategoryActual)
     : catEstimateAmountStr_(categoryEstimate)
     , catActualAmountStr_(CategoryActual)
-    , m_choiceItem()
-    , m_textAmount()
-    , m_choiceType()
 {
     budgetEntry_ = entry;
     long style = wxCAPTION | wxSYSTEM_MENU | wxCLOSE_BOX;
@@ -82,6 +79,7 @@ void mmBudgetEntryDialog::fillControls()
         m_choiceType->SetSelection(DEF_TYPE_INCOME);
 
     m_textAmount->SetValue(std::fabs(amt));
+    m_Notes->SetValue(budgetEntry_->NOTES);
 }
 
 void mmBudgetEntryDialog::CreateControls()
@@ -94,29 +92,23 @@ void mmBudgetEntryDialog::CreateControls()
     itemBoxSizer2->Add(itemStaticBoxSizer4, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxTOP | wxRIGHT, 10);
 
     wxPanel* itemPanel7 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL );
-    itemStaticBoxSizer4->Add(itemPanel7, 0, wxGROW|wxALL, 10);
+    itemStaticBoxSizer4->Add(itemPanel7, 0, wxGROW|wxALL, 0);
 
     wxFlexGridSizer* itemGridSizer2 = new wxFlexGridSizer(0, 2, 0, 0);
     itemPanel7->SetSizer(itemGridSizer2);
     
     const Model_Category::Data* category = Model_Category::instance().get(budgetEntry_->CATEGID);
-    const Model_Subcategory::Data* sub_category = (budgetEntry_->SUBCATEGID != -1 ? Model_Subcategory::instance().get(budgetEntry_->SUBCATEGID) : 0);
-
+    wxASSERT(category);
+    
     wxStaticText* itemTextEstCatAmt = new wxStaticText(itemPanel7, wxID_STATIC, catEstimateAmountStr_);
     wxStaticText* itemTextActCatAmt = new wxStaticText(itemPanel7, wxID_STATIC, catActualAmountStr_);
     
     itemGridSizer2->Add(new wxStaticText(itemPanel7, wxID_STATIC, _("Category: ")), g_flagsH);
-    itemGridSizer2->Add(new wxStaticText(itemPanel7, wxID_STATIC, category->CATEGNAME), wxSizerFlags(g_flagsH).Align(wxALIGN_RIGHT));
-    // only add the subcategory if it exists.
-    if (budgetEntry_->SUBCATEGID >= 0) {
-        wxStaticText* itemTextSubCatTag = new wxStaticText(itemPanel7, wxID_STATIC
-            , _("Sub Category: "));
-        wxStaticText* itemTextSubCatName = new wxStaticText(itemPanel7, wxID_STATIC
-            , sub_category->SUBCATEGNAME);
-        
-        itemGridSizer2->Add(itemTextSubCatTag, g_flagsH);
-        itemGridSizer2->Add(itemTextSubCatName, wxSizerFlags(g_flagsH).Align(wxALIGN_RIGHT));
-    }
+    wxString categname = Model_Category::full_name(category);
+    wxStaticText* categNameLabel = new wxStaticText(itemPanel7, wxID_STATIC,
+        (categname.size() > 50 ? wxString::FromUTF8("\u2026") + categname.substr(categname.size() - 50) : categname));
+    if (categname.size() > 50) categNameLabel->SetToolTip(categname);
+    itemGridSizer2->Add(categNameLabel, wxSizerFlags(g_flagsH).Align(wxALIGN_RIGHT));
     itemGridSizer2->Add(new wxStaticText(itemPanel7, wxID_STATIC, _("Estimated:")), g_flagsH);
     itemGridSizer2->Add(itemTextEstCatAmt, wxSizerFlags(g_flagsH).Align(wxALIGN_RIGHT));
     itemGridSizer2->Add(new wxStaticText(itemPanel7, wxID_STATIC, _("Actual:")), g_flagsH);
@@ -147,9 +139,13 @@ void mmBudgetEntryDialog::CreateControls()
         , wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT | wxTE_PROCESS_ENTER, mmCalcValidator());
     itemGridSizer2->Add(m_textAmount, g_flagsExpand);
     mmToolTip(m_textAmount, _("Enter the amount budgeted for this category."));
-    m_textAmount->Connect(wxID_ANY, wxEVT_COMMAND_TEXT_ENTER
-        , wxCommandEventHandler(mmBudgetEntryDialog::OnTextEntered), nullptr, this);
     m_textAmount->SetFocus();
+
+    itemStaticBoxSizer4->Add(new wxStaticText(this, wxID_STATIC, _("Notes")),0, wxGROW|wxALL, 5);
+    m_Notes = new wxTextCtrl(this, wxID_ANY, ""
+        , wxDefaultPosition, wxSize(-1, m_textAmount->GetSize().GetHeight() * 5), wxTE_MULTILINE);
+    itemStaticBoxSizer4->Add(m_Notes,0, wxGROW|wxALL, 5);
+    mmToolTip(m_Notes, _("Enter notes to describe this budget entry"));
     
     wxBoxSizer* itemBoxSizer9 = new wxBoxSizer(wxHORIZONTAL);
     itemBoxSizer2->Add(itemBoxSizer9, wxSizerFlags(g_flagsV).Center());
@@ -186,6 +182,7 @@ void mmBudgetEntryDialog::OnOk(wxCommandEvent& event)
 
     budgetEntry_->PERIOD = period;
     budgetEntry_->AMOUNT = amt;
+    budgetEntry_->NOTES = m_Notes->GetValue();
     Model_Budget::instance().save(budgetEntry_);
 
     EndModal(wxID_OK);
@@ -207,12 +204,4 @@ void mmBudgetEntryDialog::onChoiceChar(wxKeyEvent& event) {
     else 
         event.Skip();
 
-}
-
-void mmBudgetEntryDialog::OnTextEntered(wxCommandEvent& event)
-{
-    if (event.GetId() == m_textAmount->GetId())
-    {
-        m_textAmount->Calculate();
-    }
 }

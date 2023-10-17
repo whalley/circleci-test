@@ -1,7 +1,7 @@
 ﻿// -*- C++ -*-
 //=============================================================================
 /**
- *      Copyright: (c) 2013 - 2022 Guan Lisheng (guanlisheng@gmail.com)
+ *      Copyright: (c) 2013 - 2023 Guan Lisheng (guanlisheng@gmail.com)
  *      Copyright: (c) 2017 - 2018 Stefano Giorgio (stef145g)
  *      Copyright: (c) 2022 Mark Whalley (mark@ipx.co.uk)
  *
@@ -12,7 +12,7 @@
  *      @brief
  *
  *      Revision History:
- *          AUTO GENERATED at 2022-07-05 12:16:41.553818.
+ *          AUTO GENERATED at 2023-07-09 11:41:36.730232.
  *          DO NOT EDIT!
  */
 //=============================================================================
@@ -64,7 +64,7 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
     /** Removes all records stored in memory (cache) for the table*/ 
     void destroy_cache()
     {
-        std::for_each(cache_.begin(), cache_.end(), std::mem_fun(&Data::destroy));
+        std::for_each(cache_.begin(), cache_.end(), std::mem_fn(&Data::destroy));
         cache_.clear();
         index_by_id_.clear(); // no memory release since it just stores pointer and the according objects are in cache
     }
@@ -76,7 +76,7 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         {
             try
             {
-                db->ExecuteUpdate("CREATE TABLE CATEGORY_V1(CATEGID integer primary key, CATEGNAME TEXT COLLATE NOCASE NOT NULL UNIQUE)");
+                db->ExecuteUpdate("CREATE TABLE CATEGORY_V1( CATEGID INTEGER PRIMARY KEY,  CATEGNAME TEXT NOT NULL COLLATE NOCASE,  ACTIVE INTEGER,  PARENTID INTEGER,  UNIQUE(CATEGNAME, PARENTID))");
                 this->ensure_data(db);
             }
             catch(const wxSQLite3Exception &e) 
@@ -96,6 +96,7 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         try
         {
             db->ExecuteUpdate("CREATE INDEX IF NOT EXISTS IDX_CATEGORY_CATEGNAME ON CATEGORY_V1(CATEGNAME)");
+            db->ExecuteUpdate("CREATE INDEX IF NOT EXISTS IDX_CATEGORY_CATEGNAME_PARENTID ON CATEGORY_V1(CATEGNAME, PARENTID)");
         }
         catch(const wxSQLite3Exception &e) 
         { 
@@ -109,22 +110,63 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
     void ensure_data(wxSQLite3Database* db)
     {
         db->Begin();
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('1', '%s')", _("Bills")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('2', '%s')", _("Food")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('3', '%s')", _("Leisure")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('4', '%s')", _("Automobile")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('5', '%s')", _("Education")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('6', '%s')", _("Homeneeds")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('7', '%s')", _("Healthcare")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('8', '%s')", _("Insurance")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('9', '%s')", _("Vacation")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('10', '%s')", _("Taxes")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('11', '%s')", _("Miscellaneous")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('12', '%s')", _("Gifts")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('13', '%s')", _("Income")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('14', '%s')", _("Other Income")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('15', '%s')", _("Other Expenses")));
-        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('16', '%s')", _("Transfer")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('1', '%s', '1', '-1')", _("Bills")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('2', '%s', '1', '1')", _("Telephone")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('3', '%s', '1', '1')", _("Electricity")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('4', '%s', '1', '1')", _("Gas")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('5', '%s', '1', '1')", _("Internet")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('6', '%s', '1', '1')", _("Rent")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('7', '%s', '1', '1')", _("Cable TV")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('8', '%s', '1', '1')", _("Water")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('9', '%s', '1', '-1')", _("Food")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('10', '%s', '1', '9')", _("Groceries")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('11', '%s', '1', '9')", _("Dining out")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('12', '%s', '1', '-1')", _("Leisure")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('13', '%s', '1', '12')", _("Movies")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('14', '%s', '1', '12')", _("Video Rental")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('15', '%s', '1', '12')", _("Magazines")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('16', '%s', '1', '-1')", _("Automobile")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('17', '%s', '1', '16')", _("Maintenance")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('18', '%s', '1', '16')", _("Gas")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('19', '%s', '1', '16')", _("Parking")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('20', '%s', '1', '16')", _("Registration")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('21', '%s', '1', '-1')", _("Education")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('22', '%s', '1', '21')", _("Books")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('23', '%s', '1', '21')", _("Tuition")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('24', '%s', '1', '21')", _("Others")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('25', '%s', '1', '-1')", _("Homeneeds")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('26', '%s', '1', '25')", _("Clothing")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('27', '%s', '1', '25')", _("Furnishing")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('28', '%s', '1', '25')", _("Others")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('29', '%s', '1', '-1')", _("Healthcare")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('30', '%s', '1', '29')", _("Health")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('31', '%s', '1', '29')", _("Dental")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('32', '%s', '1', '29')", _("Eyecare")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('33', '%s', '1', '29')", _("Physician")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('34', '%s', '1', '29')", _("Prescriptions")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('35', '%s', '1', '-1')", _("Insurance")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('36', '%s', '1', '35')", _("Auto")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('37', '%s', '1', '35')", _("Life")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('38', '%s', '1', '35')", _("Home")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('39', '%s', '1', '35')", _("Health")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('40', '%s', '1', '-1')", _("Vacation")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('41', '%s', '1', '40')", _("Travel")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('42', '%s', '1', '40')", _("Lodging")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('43', '%s', '1', '40')", _("Sightseeing")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('44', '%s', '1', '-1')", _("Taxes")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('45', '%s', '1', '44')", _("Income Tax")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('46', '%s', '1', '44')", _("House Tax")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('47', '%s', '1', '44')", _("Water Tax")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('48', '%s', '1', '44')", _("Others")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('49', '%s', '1', '-1')", _("Miscellaneous")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('50', '%s', '1', '-1')", _("Gifts")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('51', '%s', '1', '-1')", _("Income")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('52', '%s', '1', '51')", _("Salary")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('53', '%s', '1', '51')", _("Reimbursement/Refunds")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('54', '%s', '1', '51')", _("Investment Income")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('55', '%s', '1', '-1')", _("Other Income")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('56', '%s', '1', '-1')", _("Other Expenses")));
+        db->ExecuteUpdate(wxString::Format("INSERT INTO CATEGORY_V1 VALUES ('57', '%s', '1', '-1')", _("Transfer")));
         db->Commit();
     }
     
@@ -140,11 +182,25 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         explicit CATEGNAME(const wxString &v, OP op = EQUAL): DB_Column<wxString>(v, op) {}
     };
     
+    struct ACTIVE : public DB_Column<int>
+    { 
+        static wxString name() { return "ACTIVE"; } 
+        explicit ACTIVE(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
+    };
+    
+    struct PARENTID : public DB_Column<int>
+    { 
+        static wxString name() { return "PARENTID"; } 
+        explicit PARENTID(const int &v, OP op = EQUAL): DB_Column<int>(v, op) {}
+    };
+    
     typedef CATEGID PRIMARY;
     enum COLUMN
     {
         COL_CATEGID = 0
         , COL_CATEGNAME = 1
+        , COL_ACTIVE = 2
+        , COL_PARENTID = 3
     };
 
     /** Returns the column name as a string*/
@@ -154,6 +210,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         {
             case COL_CATEGID: return "CATEGID";
             case COL_CATEGNAME: return "CATEGNAME";
+            case COL_ACTIVE: return "ACTIVE";
+            case COL_PARENTID: return "PARENTID";
             default: break;
         }
         
@@ -165,6 +223,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
     {
         if ("CATEGID" == name) return COL_CATEGID;
         else if ("CATEGNAME" == name) return COL_CATEGNAME;
+        else if ("ACTIVE" == name) return COL_ACTIVE;
+        else if ("PARENTID" == name) return COL_PARENTID;
 
         return COLUMN(-1);
     }
@@ -178,6 +238,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
     
         int CATEGID;//  primary key
         wxString CATEGNAME;
+        int ACTIVE;
+        int PARENTID;
 
         int id() const
         {
@@ -199,11 +261,22 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
             return this->id() < r->id();
         }
 
+        bool equals(const Data* r) const
+        {
+            if(CATEGID != r->CATEGID) return false;
+            if(!CATEGNAME.IsSameAs(r->CATEGNAME)) return false;
+            if(ACTIVE != r->ACTIVE) return false;
+            if(PARENTID != r->PARENTID) return false;
+            return true;
+        }
+        
         explicit Data(Self* table = 0) 
         {
             table_ = table;
         
             CATEGID = -1;
+            ACTIVE = -1;
+            PARENTID = -1;
         }
 
         explicit Data(wxSQLite3ResultSet& q, Self* table = 0)
@@ -212,6 +285,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         
             CATEGID = q.GetInt(0); // CATEGID
             CATEGNAME = q.GetString(1); // CATEGNAME
+            ACTIVE = q.GetInt(2); // ACTIVE
+            PARENTID = q.GetInt(3); // PARENTID
         }
 
         Data& operator=(const Data& other)
@@ -220,6 +295,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
 
             CATEGID = other.CATEGID;
             CATEGNAME = other.CATEGNAME;
+            ACTIVE = other.ACTIVE;
+            PARENTID = other.PARENTID;
             return *this;
         }
 
@@ -237,6 +314,16 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         bool match(const Self::CATEGNAME &in) const
         {
             return this->CATEGNAME.CmpNoCase(in.v_) == 0;
+        }
+
+        bool match(const Self::ACTIVE &in) const
+        {
+            return this->ACTIVE == in.v_;
+        }
+
+        bool match(const Self::PARENTID &in) const
+        {
+            return this->PARENTID == in.v_;
         }
 
         // Return the data record as a json string
@@ -259,6 +346,10 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
             json_writer.Int(this->CATEGID);
             json_writer.Key("CATEGNAME");
             json_writer.String(this->CATEGNAME.utf8_str());
+            json_writer.Key("ACTIVE");
+            json_writer.Int(this->ACTIVE);
+            json_writer.Key("PARENTID");
+            json_writer.Int(this->PARENTID);
         }
 
         row_t to_row_t() const
@@ -266,6 +357,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
             row_t row;
             row(L"CATEGID") = CATEGID;
             row(L"CATEGNAME") = CATEGNAME;
+            row(L"ACTIVE") = ACTIVE;
+            row(L"PARENTID") = PARENTID;
             return row;
         }
 
@@ -273,6 +366,8 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         {
             t(L"CATEGID") = CATEGID;
             t(L"CATEGNAME") = CATEGNAME;
+            t(L"ACTIVE") = ACTIVE;
+            t(L"PARENTID") = PARENTID;
         }
 
         /** Save the record instance in memory to the database. */
@@ -308,7 +403,7 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
 
     enum
     {
-        NUM_COLUMNS = 2
+        NUM_COLUMNS = 4
     };
 
     size_t num_columns() const { return NUM_COLUMNS; }
@@ -318,7 +413,7 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
 
     DB_Table_CATEGORY_V1() : fake_(new Data())
     {
-        query_ = "SELECT CATEGID, CATEGNAME FROM CATEGORY_V1 ";
+        query_ = "SELECT CATEGID, CATEGNAME, ACTIVE, PARENTID FROM CATEGORY_V1 ";
     }
 
     /** Create a new Data record and add to memory table (cache)*/
@@ -348,11 +443,11 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
         wxString sql = wxEmptyString;
         if (entity->id() <= 0) //  new & insert
         {
-            sql = "INSERT INTO CATEGORY_V1(CATEGNAME) VALUES(?)";
+            sql = "INSERT INTO CATEGORY_V1(CATEGNAME, ACTIVE, PARENTID) VALUES(?, ?, ?)";
         }
         else
         {
-            sql = "UPDATE CATEGORY_V1 SET CATEGNAME = ? WHERE CATEGID = ?";
+            sql = "UPDATE CATEGORY_V1 SET CATEGNAME = ?, ACTIVE = ?, PARENTID = ? WHERE CATEGID = ?";
         }
 
         try
@@ -360,8 +455,10 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
             wxSQLite3Statement stmt = db->PrepareStatement(sql);
 
             stmt.Bind(1, entity->CATEGNAME);
+            stmt.Bind(2, entity->ACTIVE);
+            stmt.Bind(3, entity->PARENTID);
             if (entity->id() > 0)
-                stmt.Bind(2, entity->CATEGID);
+                stmt.Bind(4, entity->CATEGID);
 
             stmt.ExecuteUpdate();
             stmt.Finalize();
@@ -491,6 +588,44 @@ struct DB_Table_CATEGORY_V1 : public DB_Table
                 entity = new Self::Data(q, this);
                 cache_.push_back(entity);
                 index_by_id_.insert(std::make_pair(id, entity));
+            }
+            stmt.Finalize();
+        }
+        catch(const wxSQLite3Exception &e) 
+        { 
+            wxLogError("%s: Exception %s", this->name().utf8_str(), e.GetMessage().utf8_str());
+        }
+        
+        if (!entity) 
+        {
+            entity = this->fake_;
+            // wxLogError("%s: %d not found", this->name().utf8_str(), id);
+        }
+ 
+        return entity;
+    }
+    /**
+    * Search the database for the data record, bypassing the cache.
+    */
+    Self::Data* get_record(int id, wxSQLite3Database* db)
+    {
+        if (id <= 0) 
+        {
+            ++ skip_;
+            return 0;
+        }
+
+        Self::Data* entity = 0;
+        wxString where = wxString::Format(" WHERE %s = ?", PRIMARY::name().utf8_str());
+        try
+        {
+            wxSQLite3Statement stmt = db->PrepareStatement(this->query() + where);
+            stmt.Bind(1, id);
+
+            wxSQLite3ResultSet q = stmt.ExecuteQuery();
+            if(q.NextRow())
+            {
+                entity = new Self::Data(q, this);
             }
             stmt.Finalize();
         }

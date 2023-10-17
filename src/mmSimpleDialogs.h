@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define MM_EX_MMSIMPLEDIALOGS_H_
 
 #include "mmex.h"
+#include "util.h"
 
 #include "model/Model_Account.h"
 
@@ -29,6 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <wx/spinbutt.h>
 #include <wx/dialog.h>
 #include <wx/choice.h>
+#include <wx/stc/stc.h>
 
 class wxComboBox;
 class wxTextCtrl;
@@ -46,7 +48,7 @@ public:
     int mmGetId() const;
     const wxString mmGetPattern() const;
     bool mmIsValid() const;
-    void mmDoReInitialize();
+    void mmDoReInitialize(); 
 protected:
     void OnTextUpdated(wxCommandEvent& event);
     void OnSetFocus(wxFocusEvent& event);
@@ -83,9 +85,14 @@ public:
     mmComboBoxPayee(wxWindow* parent
         , wxWindowID id = wxID_ANY
         , wxSize size = wxDefaultSize
+        , int payeeID = -1
+        , bool excludeHidden = false
     );
 protected:
     void init();
+private:
+    int payeeID_;
+    bool excludeHidden_;
 };
 
 class mmComboBoxUsedPayee : public mmComboBox
@@ -120,13 +127,16 @@ public:
     mmComboBoxCategory(wxWindow* parent
         , wxWindowID id = wxID_ANY
         , wxSize size = wxDefaultSize
+        , int catID = -1
+        , bool excludeInactive = false
     );
     int mmGetCategoryId() const;
-    int mmGetSubcategoryId() const;
 protected:
     void init();
 private:
-    std::map<wxString, std::pair<int, int> > all_categories_;
+    int catID_;
+    bool excludeHidden_;
+    std::map<wxString, int > all_categories_;
 };
 
 /* -------------------------------------------- */
@@ -150,10 +160,10 @@ class mmDatePickerCtrl : public wxDatePickerCtrl
 {
     wxDECLARE_EVENT_TABLE();
 
-public: 
+public:
     mmDatePickerCtrl(wxWindow* parent, wxWindowID id
-    , wxDateTime dt=wxDateTime::Today(), wxPoint pos=wxDefaultPosition, wxSize size=wxDefaultSize
-    , long style=wxDP_DROPDOWN | wxDP_SHOWCENTURY);
+        , wxDateTime dt=wxDateTime::Today(), wxPoint pos=wxDefaultPosition, wxSize size=wxDefaultSize
+        , long style=wxDP_DROPDOWN | wxDP_SHOWCENTURY);
     ~mmDatePickerCtrl();
     void SetValue(const wxDateTime &dt);    // Override
     bool Enable(bool state=true);           // Override
@@ -248,7 +258,7 @@ public:
     static void MessageInvalid(wxWindow *parent, const wxString &message);
     static void MessageError(wxWindow *parent, const wxString &message, const wxString &title);
     static void MessageWarning(wxWindow *parent, const wxString &message, const wxString &title);
-    static void InvalidCategory(wxWindow *button, bool simple = true);
+    static void InvalidCategory(wxWindow *button);
     static void InvalidAccount(wxWindow *object, bool transfer = false, TOOL_TIP tm = MESSAGE_DROPDOWN_BOX);
     static void InvalidFile(wxWindow *object, bool open = false);
     static void InvalidPayee(wxWindow *object);
@@ -285,4 +295,78 @@ public:
 };
 inline  int mmMultiChoiceDialog::ShowModal() {   return wxMultiChoiceDialog::ShowModal(); }
 
+/* -------------------------------------------- */
+class mmTagCtrlPopupWindow : public wxPopupTransientWindow {
+public:
+    mmTagCtrlPopupWindow(wxWindow* parent) : wxPopupTransientWindow(parent, wxPU_CONTAINS_CONTROLS) {}
+    bool dismissedByButton_ = false;
+protected:
+    virtual void OnDismiss() override {
+#ifdef __WXMSW__
+        // On MSW check if the button was used to dismiss to prevent the popup from reopening
+        wxPoint mousePos = wxGetMousePosition();
+        wxWindow* button = wxFindWindowByName("btn_dropdown_");
+        if (button->GetClientRect().Contains(button->ScreenToClient(mousePos)))
+        {
+            dismissedByButton_ = true;
+        }
+        else 
+            dismissedByButton_ = false;
+#endif
+    }
+};
+
+class mmTagTextCtrl : public wxPanel
+{
+public:
+    mmTagTextCtrl(wxWindow* parent, wxWindowID id = wxID_ANY,
+        bool operatorAllowed = false,
+        const wxPoint& pos = wxDefaultPosition,
+        const wxSize& size = wxDefaultSize, long style = 0
+    );
+    bool IsValid();
+    bool Validate(const wxString& tagText = wxEmptyString);
+    const wxArrayInt GetTagIDs() const;
+    const wxArrayString GetTagStrings();
+    void Reinitialize();
+    void SetTags(const wxArrayInt& tagIds);
+    void SetText(const wxString& text);
+    void Clear();
+    bool IsEmpty() const;
+    bool Enable(bool enable = true) override;
+
+protected:
+    void OnTextChanged(wxKeyEvent& event);
+    void OnPaste(wxStyledTextEvent& event);
+    void OnKillFocus(wxFocusEvent& event);
+    void OnPaint(wxPaintEvent& event);
+    void OnPaintButton(wxPaintEvent& event);
+    void OnDropDown(wxCommandEvent& event);
+    void OnKeyPressed(wxKeyEvent& event);
+    void OnPopupCheckboxSelected(wxCommandEvent& event);
+    void OnMouseCaptureChange(wxMouseEvent& event);
+    void OnFocusChange(wxFocusEvent& event);
+private:
+    void init();
+    wxStyledTextCtrl* textCtrl_;
+    wxBitmapButton* btn_dropdown_;
+    wxString autocomplete_string_;
+    std::map<wxString, int, caseInsensitiveComparator> tag_map_;
+    std::map<wxString, int, caseInsensitiveComparator> tags_;
+    wxArrayString parseTags(const wxString& tagString);
+    bool operatorAllowed_;
+    mmTagCtrlPopupWindow* popupWindow_;
+    wxCheckListBox* tagCheckListBox_;
+    wxColour borderColor_ = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWFRAME);
+    wxBitmap dropArrow_;
+    wxBitmap dropArrowInactive_;
+    bool initialRefreshDone_ = false;
+};
+
+inline bool mmTagTextCtrl::IsValid() { return Validate(); }
+inline const wxArrayString mmTagTextCtrl::GetTagStrings() { return parseTags(textCtrl_->GetText()); }
+inline void mmTagTextCtrl::Reinitialize() { init(); }
+inline void mmTagTextCtrl::SetText(const wxString& text) { textCtrl_->SetText(text); }
+inline bool mmTagTextCtrl::IsEmpty() const { return textCtrl_->IsEmpty(); }
+inline void mmTagTextCtrl::Clear() { textCtrl_->ClearAll(); }
 #endif // MM_EX_MMSIMPLEDIALOGS_H_

@@ -1,7 +1,7 @@
 /*******************************************************
  Copyright (C) 2006 Madhan Kanagavel
  Copyright (C) 2016 - 2021 Nikolay Akimov
- Copyright (C) 2021 Mark Whalley (mark@ipx.co.uk)
+ Copyright (C) 2021-2022 Mark Whalley (mark@ipx.co.uk)
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -33,31 +33,6 @@
 //----------------------------------------------------------------------------
 Option::Option()
 :   m_dateFormat(mmex::DEFDATEFORMAT)
-    , m_language(wxLANGUAGE_UNKNOWN)
-    , m_databaseUpdated(false)
-    , m_budgetFinancialYears(false)
-    , m_budgetIncludeTransfers(false)
-    , m_budgetReportWithSummaries(true)
-    , m_ignoreFutureTransactions(false)
-    , m_showToolTips(true)
-    , m_showMoneyTips(true)
-    , m_currencyHistoryEnabled(false)
-    , m_bulk_enter(false)
-    , m_transPayeeSelection(Option::NONE)
-    , m_transCategorySelectionNonTransfer(Option::NONE)
-    , m_transCategorySelectionTransfer(Option::NONE)
-    , m_transStatusReconciled(Option::NONE)
-    , m_usageStatistics(true)
-    , m_transDateDefault(0)
-    , m_sharePrecision(4)
-    , m_theme_mode(Option::AUTO)
-    , m_html_font_size(100)
-    , m_ico_size(16)
-    , m_font_size(0)
-    , m_toolbar_ico_size(32)
-    , m_navigation_ico_size(24)
-    , m_budget_days_offset(0)
-    , m_reporting_firstday(1)
 {}
 
 //----------------------------------------------------------------------------
@@ -96,9 +71,13 @@ void Option::LoadOptions(bool include_infotable)
 
     m_language = Option::instance().getLanguageID(true);
 
+    m_hideShareAccounts = Model_Setting::instance().GetBoolSetting(INIDB_HIDE_SHARE_ACCOUNTS, true);
+    m_hideDeletedTransactions = Model_Setting::instance().GetBoolSetting(INIDB_HIDE_DELETED_TRANSACTIONS, false);
     m_budgetFinancialYears = Model_Setting::instance().GetBoolSetting(INIDB_BUDGET_FINANCIAL_YEARS, false);
     m_budgetIncludeTransfers = Model_Setting::instance().GetBoolSetting(INIDB_BUDGET_INCLUDE_TRANSFERS, false);
     m_budgetReportWithSummaries = Model_Setting::instance().GetBoolSetting(INIDB_BUDGET_SUMMARY_WITHOUT_CATEG, true);
+    m_budgetOverride = Model_Setting::instance().GetBoolSetting(INIDB_BUDGET_OVERRIDE, false);
+    m_budgetDeductMonthly = Model_Setting::instance().GetBoolSetting(INIDB_BUDGET_DEDUCT_MONTH_FROM_YEAR, false);
     m_ignoreFutureTransactions = Model_Setting::instance().GetBoolSetting(INIDB_IGNORE_FUTURE_TRANSACTIONS, false);
     m_showToolTips = Model_Setting::instance().GetBoolSetting(INIDB_SHOW_TOOLTIPS, true);
     m_showMoneyTips = Model_Setting::instance().GetBoolSetting(INIDB_SHOW_MONEYTIPS, true);
@@ -111,7 +90,7 @@ void Option::LoadOptions(bool include_infotable)
     m_transCategorySelectionNonTransfer = Model_Setting::instance().GetIntSetting("TRANSACTION_CATEGORY_NONE", Option::LASTUSED);
     m_transCategorySelectionTransfer = Model_Setting::instance().GetIntSetting("TRANSACTION_CATEGORY_TRANSFER_NONE", Option::LASTUSED);
     m_transStatusReconciled = Model_Setting::instance().GetIntSetting("TRANSACTION_STATUS_RECONCILED", Option::NONE);
-    m_transDateDefault = Model_Setting::instance().GetIntSetting("TRANSACTION_DATE_DEFAULT", 0);
+    m_transDateDefault = Model_Setting::instance().GetIntSetting("TRANSACTION_DATE_DEFAULT", Option::NONE);
     m_usageStatistics = Model_Setting::instance().GetBoolSetting(INIDB_SEND_USAGE_STATS, true);
     m_newsChecking = Model_Setting::instance().GetBoolSetting(INIDB_CHECK_NEWS, true);
     
@@ -216,6 +195,28 @@ bool Option::DatabaseUpdated()
     return m_databaseUpdated;
 }
 
+void Option::HideShareAccounts(bool value)
+{
+    Model_Setting::instance().Set(INIDB_HIDE_SHARE_ACCOUNTS, value);
+    m_hideShareAccounts = value;
+}
+
+bool Option::HideShareAccounts()
+{
+    return m_hideShareAccounts;
+}
+
+void Option::HideDeletedTransactions(bool value)
+{
+    Model_Setting::instance().Set(INIDB_HIDE_DELETED_TRANSACTIONS, value);
+    m_hideDeletedTransactions = value;
+}
+
+bool Option::HideDeletedTransactions()
+{
+    return m_hideDeletedTransactions;
+}
+
 void Option::BudgetFinancialYears(bool value)
 {
     Model_Setting::instance().Set(INIDB_BUDGET_FINANCIAL_YEARS, value);
@@ -249,6 +250,30 @@ void Option::BudgetReportWithSummaries(bool value)
 bool Option::BudgetReportWithSummaries()
 {
     return m_budgetReportWithSummaries;
+}
+
+void Option::BudgetOverride(bool value)
+{
+    Model_Setting::instance().Set(INIDB_BUDGET_OVERRIDE, value);
+    m_budgetOverride = value;
+
+}
+
+bool Option::BudgetOverride()
+{
+    return m_budgetOverride;
+}
+
+void Option::BudgetDeductMonthly(bool value)
+{
+    Model_Setting::instance().Set(INIDB_BUDGET_DEDUCT_MONTH_FROM_YEAR, value);
+    m_budgetDeductMonthly = value;
+
+}
+
+bool Option::BudgetDeductMonthly()
+{
+    return m_budgetDeductMonthly;
 }
 
 void Option::IgnoreFutureTransactions(bool value)
@@ -331,7 +356,7 @@ int Option::SharePrecision()
     return m_sharePrecision;
 }
 
-void Option::SendUsageStatistics(bool value)
+void Option::SendUsageStatistics(const bool value)
 {
     m_usageStatistics = value;
     Model_Setting::instance().Set(INIDB_SEND_USAGE_STATS, value);

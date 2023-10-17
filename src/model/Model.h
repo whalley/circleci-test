@@ -53,7 +53,7 @@ class ModelBase
 public:
     ModelBase() :db_(0) {};
     virtual ~ModelBase() {};
-
+    
 public:
     void Begin()
     {
@@ -92,6 +92,7 @@ protected:
 public:
     virtual wxString  GetTableStatsAsJson() const = 0;
     virtual void show_statistics() const = 0;
+    virtual void destroyCache() = 0;
 
 protected:
     wxSQLite3Database* db_;
@@ -104,6 +105,7 @@ public:
     using DB_TABLE::all;
     using DB_TABLE::get;
     using DB_TABLE::save;
+    using DB_TABLE::get_record;
     using DB_TABLE::remove;
 
     typedef typename DB_TABLE::COLUMN COLUMN;
@@ -153,6 +155,14 @@ public:
     typename DB_TABLE::Data* get(int id)
     {
         return this->get(id, this->db_);
+    }
+
+    /**
+    * Return the Data record for the given ID directly from the database, bypassing the cache.
+    */
+    typename DB_TABLE::Data* get_record(int id)
+    {
+        return this->get_record(id, this->db_);
     }
 
     /** Save the Data record memory instance to the database. */
@@ -232,6 +242,11 @@ public:
         wxLogDebug("%s", wxString::FromUTF8(json_buffer.GetString()));
 
         return wxString::FromUTF8(json_buffer.GetString());
+    }
+
+    void destroyCache()
+    {
+        if (this->cache_.size() > 0) this->destroy_cache();
     }
 
     /** Show table statistics*/

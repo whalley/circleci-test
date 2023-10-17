@@ -1,7 +1,7 @@
 /*******************************************************
  Copyright (C) 2011 Stefano Giorgio
  Copyright (C) 2014 -2017 Nikolay Akimov
- Copyright (C) 2021 Mark Whalley (mark@ipx.co.uk)
+ Copyright (C) 2021-2022 Mark Whalley (mark@ipx.co.uk)
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -305,9 +305,11 @@ void mmGeneralReportManager::fillControls()
         {
             group_name = record.GROUPNAME;
             group = m_treeCtrl->AppendItem(m_rootItem, group_name);
+            m_treeCtrl->SetItemBold(group, true);
             m_treeCtrl->SetItemData(group, new MyTreeItemData(-1, group_name));
         }
-        wxTreeItemId item = m_treeCtrl->AppendItem(no_group ? m_rootItem : group, record.REPORTNAME);
+        wxTreeItemId item = m_treeCtrl->AppendItem(no_group ? m_rootItem : group
+            , wxString::Format("%s%s", (record.ACTIVE ? L"" : L"\u2717 "), record.REPORTNAME));
         m_treeCtrl->SetItemData(item, new MyTreeItemData(record.REPORTID, record.GROUPNAME));
 
         if (m_selectedReportID == record.REPORTID)
@@ -345,6 +347,7 @@ void mmGeneralReportManager::CreateControls()
 
     m_treeCtrl = new wxTreeCtrl(left_panel, ID_REPORT_LIST, wxDefaultPosition, wxDefaultSize,
         wxTR_SINGLE | wxTR_HAS_BUTTONS | wxTR_NO_LINES | wxTR_TWIST_BUTTONS);
+    m_treeCtrl->Bind(wxEVT_RIGHT_DOWN, &mmGeneralReportManager::OnRightClick, this);
     mmThemeMetaColour(m_treeCtrl, meta::COLOR_NAVPANEL);
     mmThemeMetaColour(m_treeCtrl, meta::COLOR_NAVPANEL_FONT, true);
     left_sizer->Add(m_treeCtrl, g_flagsExpand);
@@ -622,6 +625,7 @@ void mmGeneralReportManager::importReport()
     report->LUACONTENT = lua;
     report->TEMPLATECONTENT = htt;
     report->DESCRIPTION = txt;
+    report->ACTIVE = 1;
     m_selectedReportID = Model_Report::instance().save(report);
 
     fillControls();
@@ -666,7 +670,7 @@ bool mmGeneralReportManager::openZipFile(const wxString &reportFileName
         }
         else
         {
-            wxString msg = wxString::Format(_("Unable to open file:\n%s\n\n"), reportFileName);
+            wxString msg = wxString() << _("Unable to open file:") << "\n" << "'" << reportFileName << "'" << "\n" << "\n";
             wxMessageBox(msg, _("General Reports Manager"), wxOK | wxICON_ERROR);
             return false;
         }
@@ -716,6 +720,13 @@ void mmGeneralReportManager::OnRun(wxCommandEvent& WXUNUSED(event))
         browser_->LoadURL(name);
     }
 }
+void mmGeneralReportManager::OnRightClick(wxMouseEvent& event) {
+    wxTreeItemId id = m_treeCtrl->HitTest(event.GetPosition());
+    if (!id.IsOk())
+        id = m_treeCtrl->GetRootItem();
+    wxTreeEvent evt(wxEVT_TREE_ITEM_MENU, m_treeCtrl, id);
+    GetEventHandler()->AddPendingEvent(evt);
+}
 
 void mmGeneralReportManager::OnItemRightClick(wxTreeEvent& event)
 {
@@ -727,24 +738,31 @@ void mmGeneralReportManager::OnItemRightClick(wxTreeEvent& event)
     Model_Report::Data *report = Model_Report::instance().get(report_id);
 
     wxMenu* samplesMenu = new wxMenu;
-    samplesMenu->Append(ID_NEW_SAMPLE_ASSETS, _("Assets"));
+    samplesMenu->Append(ID_NEW_SAMPLE_ASSETS, _("Assets..."));
 
     wxMenu customReportMenu;
-    customReportMenu.Append(ID_NEW_EMPTY, _("New Empty Report"));
+    customReportMenu.Append(ID_NEW_EMPTY, _("New Empty Report..."));
     customReportMenu.Append(wxID_ANY, _("New Sample Report"), samplesMenu);
     customReportMenu.AppendSeparator();
     if (report)
-        customReportMenu.Append(ID_GROUP, _("Change Group"));
+        customReportMenu.Append(ID_GROUP, _("Change Group..."));
     else
-        customReportMenu.Append(ID_GROUP, _("Rename Group"));
+        customReportMenu.Append(ID_GROUP, _("Rename Group..."));
     customReportMenu.Append(ID_UNGROUP, _("UnGroup"));
-    customReportMenu.Append(ID_RENAME, _("Rename Report"));
+    customReportMenu.Append(ID_RENAME, _("Rename Report..."));
     customReportMenu.AppendSeparator();
-    customReportMenu.Append(ID_DELETE, _("Delete Report"));
+
+    wxMenuItem* menuItemActive = new wxMenuItem(&customReportMenu, ID_ACTIVE,
+        _("Active"), _("Show/Hide the report in the main navigation panel"), wxITEM_CHECK);
+    customReportMenu.Append(menuItemActive);
+
+    customReportMenu.AppendSeparator();
+    customReportMenu.Append(ID_DELETE, _("Delete Report..."));
 
     if (report)
     {
         customReportMenu.Enable(ID_UNGROUP, !report->GROUPNAME.empty());
+        menuItemActive->Check(report->ACTIVE);
     }
     else
     {
@@ -754,6 +772,7 @@ void mmGeneralReportManager::OnItemRightClick(wxTreeEvent& event)
         customReportMenu.Enable(ID_UNGROUP, false);
         customReportMenu.Enable(ID_RENAME, false);
         customReportMenu.Enable(ID_DELETE, false);
+        customReportMenu.Enable(ID_ACTIVE, false);
     }
     PopupMenu(&customReportMenu);
 }
@@ -870,6 +889,16 @@ bool mmGeneralReportManager::DeleteReport(int id)
     return false;
 }
 
+void mmGeneralReportManager::changeReportState(int id)
+{
+    Model_Report::Data* report = Model_Report::instance().get(id);
+    if (report)
+    {
+        report->ACTIVE = (report->ACTIVE + 1) % 2;
+        Model_Report::instance().save(report);
+    }
+}
+
 bool mmGeneralReportManager::changeReportGroup(int id, bool ungroup)
 {
     Model_Report::Data * report = Model_Report::instance().get(id);
@@ -948,6 +977,9 @@ void mmGeneralReportManager::OnMenuSelected(wxCommandEvent& event)
             case ID_UNGROUP:
                 this->changeReportGroup(report_id, true);
                 break;
+            case ID_ACTIVE:
+                this->changeReportState(report_id);
+                break;
             }
         }
         else if (id == ID_GROUP)
@@ -991,7 +1023,7 @@ void mmGeneralReportManager::newReport(int sample)
         if (!report_name.empty() && Model_Report::instance().find(Model_Report::REPORTNAME(report_name)).empty())
             break;
         if (i == max_attempts - 1)
-            return mmErrorDialogs::MessageError(this, _("Report Name already exists"), _("New Report"));
+            return mmErrorDialogs::MessageError(this, _("A report with this name already exists"), _("New Report"));
     }
 
     wxString sqlContent, luaContent, httContent, description;
@@ -1015,6 +1047,7 @@ void mmGeneralReportManager::newReport(int sample)
     report->LUACONTENT = luaContent;
     report->TEMPLATECONTENT = httContent;
     report->DESCRIPTION = description;
+    report->ACTIVE = 1;
     m_selectedReportID = Model_Report::instance().save(report);
 }
 
