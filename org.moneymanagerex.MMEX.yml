@@ -49,4 +49,4 @@ modules:
       - -DCMAKE_BUILD_TYPE=Release
     sources:
       - type: dir
-        path: ..
+        path: .
